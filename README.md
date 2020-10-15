@@ -12,7 +12,7 @@ Implement the [Mitosis transformation rules](https://github.com/mschauer/Mitosis
 
 MitosisStochasticDiffEq implements the backward filter and the forward change of measure  of the Automatic Backward Filtering Forward Guiding paradigm  (van der Meulen and Schauer, 2020) as transformation rules for SDE models,  suitable to be incorporated into probabilistic programming approaches.
 
-In particular, this package implements the equations ... of section 9.1, [2] further detailed in [1]. The recursion for the quantity c in [2, Theorem 3.3 (Information filter)] is replaced by the simpler rule from [2, Example 10.8.]
+In particular, this package implements the equations ... of section 9.1, [2] further detailed in [1]. The recursion for the quantity c in [1, Theorem 3.3 (Information filter)] is replaced by the simpler rule from [2, Example 10.8.]
 
 
 
