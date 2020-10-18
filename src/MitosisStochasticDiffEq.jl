@@ -7,24 +7,38 @@ using DiffEqCallbacks
 using DiffEqNoiseProcess
 using LinearAlgebra
 using Random
-using Parameters
+#using Parameters
+using UnPack
 using Statistics
 
-struct SDEKernel{T}
-    params::T
+struct SDEKernel{fType,gType,uType,tType,dtType,paramType1,paramType2}
+    f::fType
+    g::gType
+    u0::uType
+    tstart::tType
+    tend::tType
+    dt::dtType
+    p::paramType1
+    pest::paramType2
 end
 
+function SDEKernel(f,g,u0,tstart,tend,pest;p=nothing,dt=nothing)
+  SDEKernel{typeof(f),typeof(g),typeof(u0),typeof(tstart),
+            typeof(dt),typeof(p),typeof(pest)}(f,g,u0,tstart,tend,dt,p,pest)
+end
 
-function Mitosis.sample(k::SDEKernel, u0; method=EM(false))
-    @unpack f, g, u0, trange, p, dt = k.params
-    prob = SDEProblem(f, g, u0, trange, p)
-    sol = solve(prob, method, dt = dt)
+function sample(k::SDEKernel; alg=EM(false),kwargs...)
+    @unpack f, g, u0, tstart, tend, p, dt = k
+    prob = SDEProblem(f, g, u0, (tstart,tend), p)
+    sol = solve(prob, alg, dt = dt; kwargs...)
     return sol
 end
 
 
-function backwardfilter(k::SDEKernel, (c, ν, P)::NamedTuple{(:logscale, :μ, :Σ)})
-    @unpack trange, p, dt = k.params
+function backwardfilter(k::SDEKernel, (c, ν, P)::NamedTuple{(:logscale, :μ, :Σ)}; alg=Euler())
+    @unpack tstart, tend, pest, dt = k
+
+    trange = (tend, tstart)
 
     # Initialize OD
     u0 = [ν, P, c]
@@ -45,8 +59,8 @@ function backwardfilter(k::SDEKernel, (c, ν, P)::NamedTuple{(:logscale, :μ, :�
       return [dν, dP, dc]
     end
 
-    prob = ODEProblem(filterODE, u0, reverse(trange), p)
-    sol = solve(prob, Euler(), dt=dt)
+    prob = ODEProblem(filterODE, u0, trange, pest)
+    sol = solve(prob, alg, dt=dt)
     message = sol
     return sol[end], message
 end
@@ -64,7 +78,7 @@ function forwardguiding(k::SDEKernel, message, (u0, ll), Z=WienerProcess(0.0,[0.
         P = νPc[2]
         ν = νPc[1]
         r = inv(P)*(ν .- u)
-        dll = dot(b(x,pest,si) - b̃(x,ptilde,si), r) - 0.5*tr((σ(x,pest,si)*σ(x,pest,si)' - σ̃(x,ptilde,si)*σ̃(x,ptilde,si)')*(inv(P) .- r*r'))*dt    
+        dll = dot(b(x,pest,si) - b̃(x,ptilde,si), r) - 0.5*tr((σ(x,pest,si)*σ(x,pest,si)' - σ̃(x,ptilde,si)*σ̃(x,ptilde,si)')*(inv(P) .- r*r'))
         du = f(u, p, t) + g(u, p, t)*g(u, p, t)'*r  # evolution guided by observations
         return [du, dll]
       end
