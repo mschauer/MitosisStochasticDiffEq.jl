@@ -1,6 +1,6 @@
 name = "MitosisStochasticDiffEq"
 uuid = "6d72f4e6-0ed6-45a8-9268-ca10853c051d"
-authors = ["mschauer <moritzschauer@web.de> and contributors"]
+authors = ["Frank Schaefer <frank.schaefer@unibas.ch>, Moritz Schauer <moritzschauer@web.de> and contributors"]
 version = "0.1.0"
 
 [deps]
