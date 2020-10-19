@@ -7,7 +7,7 @@
 
 Implement the [Mitosis transformation rules](https://github.com/mschauer/Mitosis.jl) `backwardfilter` and `forwardguiding` for for SciML's [`StochasticDiffEq`](https://github.com/SciML/StochasticDiffEq.jl) problems. 
 
-# Prerequisites
+## Prerequisites
 
 Unregistered package. Requires
 * https://github.com/mschauer/Mitosis.jl (unregistered)
