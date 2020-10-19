@@ -16,10 +16,11 @@ dt = 0.02
 # intial condition
 u0 = 1.1
 
-# set estimated parameters Eq.~(2.2)
-pest = [-0.1,0.2,1.3]
+# set of linear parameters Eq.~(2.2)
+plin = [-0.1,0.2,1.3]
+pest = [2.0] # initial guess of parameter to be estimated
 
-kernel = MitosisStochasticDiffEq.SDEKernel(f,g,u0,tstart,tend,pest,p=p,dt=dt)
+kernel = MitosisStochasticDiffEq.SDEKernel(f,g,tstart,tend,pest,plin,p=p,dt=dt)
 
 
 # initial values for ODE
@@ -53,7 +54,7 @@ function backwardfilter((c, ν, P)::NamedTuple{(:logscale, :μ, :Σ)}, p, s)
 end
 
 
-solend2, message2 = backwardfilter(NT, pest, reverse(message.t))
+solend2, message2 = backwardfilter(NT, plin, reverse(message.t))
 
 @test isapprox(solend, solend2, rtol=1e-12)
 @test isapprox(Array(message), reduce(hcat, message2), rtol=1e-12)
