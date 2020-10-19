@@ -21,7 +21,7 @@ dt = 0.02
 u0 = 1.1
 
 
-kernel = MitosisStochasticDiffEq.SDEKernel(f,g,u0,tstart,tend,pest,plin,p=p,dt=dt)
+kernel = MitosisStochasticDiffEq.SDEKernel(f,g,tstart,tend,pest,plin,p=p,dt=dt)
 
 
 # initial values for ODE
@@ -34,8 +34,7 @@ backward, message = MitosisStochasticDiffEq.backwardfilter(kernel, NT)
 x0 = randn()
 ll0 = randn()
 
-MitosisStochasticDiffEq.forwardguiding(kernel, message, (x0, ll0), Z=nothing)
-
+solfw, ll = MitosisStochasticDiffEq.forwardguiding(kernel, message, (x0, ll0), Z=nothing; save_noise=true)
 
 
 """
@@ -46,25 +45,29 @@ log-likelihood `ll` with innovations `Z = randn(length(s))`.
 function forwardguiding(plin, pest, s, (x, ll), ps, Z=randn(length(s)))
     # linear approximation of b and constant approximation of σ
     # with parameters B, β, and σ̃
-    flinear(u,p,t) = p[1]*x + p[2]
+    flinear(u,p,t) = p[1]*u + p[2]
     σlinear(u,p,t) = p[3]
 
     llstep(x, r, t, P) = dot(f(x,pest,t) - flinear(x,plin,t), r) -0.5*tr((g(x,pest,t)*g(x,pest,t)' -σlinear(x,plin,t)*σlinear(x,plin,t)')*(inv(P) - r*r'))
     xs = typeof(x)[]
-    for i in skiplast(eachindex(s))
+    for i in eachindex(s)[1:end-1]
         dt = s[i+1] - s[i]
         t = s[i]
         push!(xs, x)
-        ν, P, _ = ps[i]
+
+        ν, P, _ = ps[:,i]
         r = inv(P)*(ν - x)
-        ll += llstep(x, r, dt, P)*dt # accumulate log-likelihood
-        x = x + f(x,pest,t)*dt + g(x,pest,t)*g(x,pest,t)'*r*dt + g(x,pest,t)*sqrt(dt)*Z[i] # evolution guided by observations
+        ll += llstep(x, r, t, P)*dt # accumulate log-likelihood
+        x = x + f(x,pest,t)*dt + g(x,pest,t)*g(x,pest,t)'*r*dt + g(x,pest,t)*Z[i]#sqrt(dt)*Z[i] # evolution guided by observations
     end
     push!(xs, x)
     xs, ll
 end
 
-sol2, ll2 = forwardguiding(NT, pest, reverse(message.t))
 
-@test isapprox(solend, solend2, rtol=1e-12)
-@test isapprox(Array(message), reduce(hcat, message2), rtol=1e-12)
+dWs = (solfw.W[1,2:end]-solfw.W[1,1:end-1])
+ps = reverse(Array(message), dims=2)
+solfw2, ll2 = forwardguiding(plin, pest, reverse(message.t), (x0, ll0),ps,dWs)
+
+@test isapprox(solfw[1,:], solfw2, rtol=1e-10)
+@test isapprox(ll, ll2, rtol=1e-10)

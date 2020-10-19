@@ -96,33 +96,32 @@ function forwardguiding(k::SDEKernel, message, (x0, ll0), Z=nothing; alg=EM(fals
 
     # non-interpolating version
     cur_time = Ref(1)
-    guided_f = let sol=message, ts = reverse(message.t), cur_time=cur_time, ptilde=plin
-      function (u,p,t)
+    guided_f = let sol=reverse(Array(message), dims=2), ts = reverse(message.t), cur_time=cur_time, ptilde=plin
+      function (du,u,p,t)
 
         x = @view u[1:end-1]
+        dx =  @view du[1:end-1]
         ll = u[end]
 
         # take care for multivariate case here if P isa Matrix, ν  isa Vector, c isa Scalar
         # ν, P, c
-        ν, P, _ = sol[cur_time[]][:]
+        ν, P, _ = sol[:,cur_time[]]
         ti = ts[cur_time[]]
         cur_time[] += 1
         r = inv(P)*(ν .- x)
 
-        dll = dot(f(x,p,ti) -  b̃(x,ptilde,ti), r) - 0.5*tr((g(x,p,ti)*g(x,p,ti)' - σ̃(x,ptilde,ti)*σ̃(x,ptilde,ti)')*(inv(P) .- r*r'))
-        dx = f(x, p, ti) .+ g(x, p, ti)*g(x, p, ti)'.*r  # evolution guided by observations
-        du = [dx; dll]
-
-        return du
+        du[end] = dot(f(x,p,ti) -  b̃(x,ptilde,ti), r) - 0.5*tr((g(x,p,ti)*g(x,p,ti)' - σ̃(x,ptilde,ti)*σ̃(x,ptilde,ti)')*(inv(P) .- r*r'))
+        dx[:] .= vec(f(x, p, ti) .+ g(x, p, ti)*g(x, p, ti)'.*r) # evolution guided by observations
+        return nothing
       end
     end
 
-    function guided_g(u,p,t)
+    function guided_g(du,u,p,t)
       x = @view u[1:end-1]
-      dll = zero(u[end])
 
-      dx = g(x,p,t)
-      return [dx; dll]
+      du[1:end-1] .= g(x,p,t)
+      du[end] = false*u[end]
+      return nothing
     end
 
     if Z!=nothing
@@ -132,7 +131,7 @@ function forwardguiding(k::SDEKernel, message, (x0, ll0), Z=nothing; alg=EM(fals
     end
 
     sol = solve(prob, alg, dt=dt; kwargs...)
-    return sol, sol[end]
+    return sol, sol[end][end]
 end
 
 

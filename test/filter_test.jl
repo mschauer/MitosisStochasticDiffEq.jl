@@ -20,7 +20,7 @@ u0 = 1.1
 plin = [-0.1,0.2,1.3]
 pest = [2.0] # initial guess of parameter to be estimated
 
-kernel = MitosisStochasticDiffEq.SDEKernel(f,g,u0,tstart,tend,pest,plin,p=p,dt=dt)
+kernel = MitosisStochasticDiffEq.SDEKernel(f,g,tstart,tend,pest,plin,p=p,dt=dt)
 
 
 # initial values for ODE
