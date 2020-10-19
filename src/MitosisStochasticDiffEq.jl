@@ -11,10 +11,9 @@ using Random
 using UnPack
 using Statistics
 
-struct SDEKernel{fType,gType,uType,tType,dtType,paramType1,paramType2}
+struct SDEKernel{fType,gType,tType,dtType,paramType1,paramType2}
     f::fType
     g::gType
-    u0::uType
     tstart::tType
     tend::tType
     dt::dtType
@@ -23,15 +22,15 @@ struct SDEKernel{fType,gType,uType,tType,dtType,paramType1,paramType2}
 end
 
 function SDEKernel(f,g,u0,tstart,tend,pest;p=nothing,dt=nothing)
-  SDEKernel{typeof(f),typeof(g),typeof(u0),typeof(tstart),
-            typeof(dt),typeof(p),typeof(pest)}(f,g,u0,tstart,tend,dt,p,pest)
+  SDEKernel{typeof(f),typeof(g),typeof(tstart),
+            typeof(dt),typeof(p),typeof(pest)}(f,g,tstart,tend,dt,p,pest)
 end
 
-function sample(k::SDEKernel; alg=EM(false),kwargs...)
-    @unpack f, g, u0, tstart, tend, p, dt = k
+function sample(k::SDEKernel, u0; alg=EM(false),kwargs...)
+    @unpack f, g, tstart, tend, p, dt = k
     prob = SDEProblem(f, g, u0, (tstart,tend), p)
     sol = solve(prob, alg, dt = dt; kwargs...)
-    return sol
+    return sol, sol[end]
 end
 
 
@@ -86,7 +85,7 @@ function forwardguiding(k::SDEKernel, message, (u0, ll), Z=WienerProcess(0.0,[0.
 
     prob = SDEProblem(guided_f, g, (u0, ll), trange, noise=Z)
     sol = solve(prob, EM(false), dt=dt, adaptive=false)
-    return vec(Array(sol(s)))
+    return sol, sol[end]
 end
 
 
