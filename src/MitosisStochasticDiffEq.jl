@@ -1,6 +1,7 @@
 module MitosisStochasticDiffEq
 
 using Mitosis
+using RecursiveArrayTools
 using StochasticDiffEq
 using OrdinaryDiffEq
 using DiffEqCallbacks
@@ -34,6 +35,11 @@ function sample(k::SDEKernel, u0; alg=EM(false),kwargs...)
     return sol, sol[end]
 end
 
+myunpack(a) = a
+myunpack(a::ArrayPartition) = a.x
+mypack(a...) = ArrayPartition(a...)
+mypack(a::Number...) = [a...]
+
 
 function backwardfilter(k::SDEKernel, (c, ν, P)::NamedTuple{(:logscale, :μ, :Σ)}; alg=Euler())
     @unpack tstart, tend, plin, dt = k
@@ -41,13 +47,13 @@ function backwardfilter(k::SDEKernel, (c, ν, P)::NamedTuple{(:logscale, :μ, :�
     trange = (tend, tstart)
 
     # Initialize OD
-    u0 = [ν, P, c]
+    u0 = mypack(ν, P, c)
 
     function filterODE(u, p, t)
       B, β, σtil = p
 
       # take care for multivariate case here if P isa Matrix, ν  isa Vector, c isa Scalar
-      ν, P, c = u
+      ν, P, c = myunpack(u)
 
       H = inv(P)
       F = H*ν
@@ -56,7 +62,7 @@ function backwardfilter(k::SDEKernel, (c, ν, P)::NamedTuple{(:logscale, :μ, :�
       dν = B*ν + β
       dc = tr(B)
 
-      return [dν, dP, dc]
+      return mypack(dν, dP, dc)
     end
 
     prob = ODEProblem(filterODE, u0, trange, plin)
