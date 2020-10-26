@@ -31,6 +31,7 @@ y = vcat(y_)
 samples_ = [MitosisStochasticDiffEq.sample(sdekernel, u0, save_noise=true)[2] for k in 1:K]
 samples = vcat.(samples_)
 
+# Compute transition density. See Ludvig Arnold (ISBN 9780486482361 ), also Proposition 3.5. in [1]
 B = fill(p[1], 1, 1)
 Φ = exp(B*(tend - tstart))
 β = fill(0.0, 1)
