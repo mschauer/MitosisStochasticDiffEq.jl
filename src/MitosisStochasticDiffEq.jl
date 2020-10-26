@@ -40,6 +40,37 @@ myunpack(a::ArrayPartition) = a.x
 mypack(a,b,c) = ArrayPartition(a,b,[c])
 mypack(a::Number...) = [a...]
 
+function filterODE(u, p, t)
+  B, β, σtil = p
+
+  # take care for multivariate case here if P isa Matrix, ν  isa Vector, c isa Scalar
+  ν, P, c = myunpack(u)
+
+  H = inv(P)
+  F = H*ν
+
+  dP = B*P + P*B' .- σtil*σtil'
+  dν = B*ν .+ β
+  dc = tr(B)
+
+  return mypack(dν, dP, dc)
+end
+
+function filterODE(du, u, p, t)
+  B, β, σtil = p
+
+  # take care for multivariate case here if P isa Matrix, ν  isa Vector, c isa Scalar
+  ν, P, c = myunpack(u)
+
+  H = inv(P)
+  F = H*ν
+
+  du.x[1] .= B*ν .+ β
+  du.x[2] .= B*P + P*B' .- σtil*σtil'
+  du.x[3] .= tr(B)
+
+  return nothing
+end
 
 function backwardfilter(k::SDEKernel, (c, ν, P)::NamedTuple{(:logscale, :μ, :Σ)}; alg=Euler(), inplace=false)
     @unpack tstart, tend, plin, dt = k
@@ -48,38 +79,6 @@ function backwardfilter(k::SDEKernel, (c, ν, P)::NamedTuple{(:logscale, :μ, :�
 
     # Initialize OD
     u0 = mypack(ν, P, c)
-
-    function filterODE(u, p, t)
-      B, β, σtil = p
-
-      # take care for multivariate case here if P isa Matrix, ν  isa Vector, c isa Scalar
-      ν, P, c = myunpack(u)
-
-      H = inv(P)
-      F = H*ν
-
-      dP = B*P + P*B' .- σtil*σtil'
-      dν = B*ν .+ β
-      dc = tr(B)
-
-      return mypack(dν, dP, dc)
-    end
-
-    function filterODE(du, u, p, t)
-      B, β, σtil = p
-
-      # take care for multivariate case here if P isa Matrix, ν  isa Vector, c isa Scalar
-      ν, P, c = myunpack(u)
-
-      H = inv(P)
-      F = H*ν
-
-      du.x[1] .= B*ν .+ β
-      du.x[2] .= B*P + P*B' .- σtil*σtil'
-      du.x[3] .= tr(B)
-
-      return nothing
-    end
 
     prob = ODEProblem{inplace}(filterODE, u0, trange, plin)
     sol = solve(prob, alg, dt=dt)
