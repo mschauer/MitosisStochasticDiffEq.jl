@@ -61,15 +61,13 @@ solend2, message2 = backwardfilter(NT, plin, reverse(message.t))
 
 
 # multivariate tests
-dim = 2
+dim = 5
 Random.seed!(123)
 logscale = randn()
 μ = randn(dim)
 Σ = randn(dim,dim)
 myvalues = [logscale, μ, Σ];
 NT = NamedTuple{mynames}(myvalues)
-
-#plin = [randn] # B, β, σtil
 
 kernel = MitosisStochasticDiffEq.SDEKernel(f,g,tstart,tend,pest,plin,p=p,dt=dt)
 solend, message = MitosisStochasticDiffEq.backwardfilter(kernel, NT)
@@ -81,5 +79,34 @@ solend2, message2 = backwardfilter(NT, plin, reverse(message.t))
 
 # test inplace version
 solend2, message2 = MitosisStochasticDiffEq.backwardfilter(kernel, NT, inplace=true)
+@test isapprox(solend, solend2, rtol=1e-15)
+@test isapprox(Array(message), Array(message2), rtol=1e-15)
+
+m = 3 # some number of Brownian processes
+plin = [randn(dim,dim), randn(dim), randn(dim,m)] # B, β, σtil
+
+kernel = MitosisStochasticDiffEq.SDEKernel(f,g,tstart,tend,pest,plin,p=p,dt=dt)
+solend, message = MitosisStochasticDiffEq.backwardfilter(kernel, NT)
+solend2, message2 = backwardfilter(NT, plin, reverse(message.t))
+
+@test isapprox(solend.x[1], solend2[1], rtol=1e-15)
+@test isapprox(solend.x[2], solend2[2], rtol=1e-14)
+@test isapprox(solend.x[3][1], solend2[3], rtol=1e-15)
+
+# test inplace version
+solend2, message2 = MitosisStochasticDiffEq.backwardfilter(kernel, NT, inplace=true)
+@test isapprox(solend, solend2, rtol=1e-15)
+@test isapprox(Array(message), Array(message2), rtol=1e-15)
+
+
+# test symmetric matrix
+plin = [Symmetric(randn(dim,dim)), randn(dim), randn(dim,m)] # B, β, σtil
+kernel = MitosisStochasticDiffEq.SDEKernel(f,g,tstart,tend,pest,plin,p=p,dt=dt)
+solend, message  = MitosisStochasticDiffEq.backwardfilter(kernel, NT)
+
+plin = [Array(plin[1]), plin[2], plin[3]] # B, β, σtil
+kernel = MitosisStochasticDiffEq.SDEKernel(f,g,tstart,tend,pest,plin,p=p,dt=dt)
+solend2, message2  = MitosisStochasticDiffEq.backwardfilter(kernel, NT)
+
 @test isapprox(solend, solend2, rtol=1e-15)
 @test isapprox(Array(message), Array(message2), rtol=1e-15)
