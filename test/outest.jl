@@ -26,7 +26,8 @@ u0 = 1.1
 plin = copy(p)
 pest = [2.0]
 sdekernel = MitosisStochasticDiffEq.SDEKernel(f,g,tstart,tend,pest,plin,p=p,dt=dt)
-sol, solend = MitosisStochasticDiffEq.sample(sdekernel, u0, save_noise=true)
+sol, y_ = MitosisStochasticDiffEq.sample(sdekernel, u0, save_noise=true)
+y = vcat(y_)
 samples_ = [MitosisStochasticDiffEq.sample(sdekernel, u0, save_noise=true)[2] for k in 1:K]
 samples = vcat.(samples_)
 
@@ -44,3 +45,19 @@ p = gkernel([u0])
 p̂ = Gaussian{(:μ, :Σ)}(mean(samples), cov(samples))
 @test norm(p.μ - p̂.μ) < 5/sqrt(K)
 @test norm(p.Σ - p̂.Σ) < 5/sqrt(K)
+
+
+
+m, p = backwardfilter(gkernel, y)
+# initial values for ODE
+mynames = (:logscale, :μ, :Σ);
+myvalues = [0.0, y_, 0.0];
+NT = NamedTuple{mynames}(myvalues)
+
+solend, message = MitosisStochasticDiffEq.backwardfilter(sdekernel, NT)
+dump(solend)
+@testset "Mitosis" begin
+    @test (p.c)[] ≈ solend[3]
+    @test (p.Γ\p.F)[] ≈ solend[1] atol=0.02
+    @test inv(p.Γ)[] ≈ solend[2] atol=0.02
+end
