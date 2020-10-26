@@ -55,7 +55,7 @@ myvalues = [0.0, y_, 0.0];
 NT = NamedTuple{mynames}(myvalues)
 
 solend, message = MitosisStochasticDiffEq.backwardfilter(sdekernel, NT)
-dump(solend)
+
 @testset "Mitosis" begin
     @test (p.c)[] ≈ solend[3]
     @test (p.Γ\p.F)[] ≈ solend[1] atol=0.02
