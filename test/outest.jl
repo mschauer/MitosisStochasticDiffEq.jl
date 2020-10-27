@@ -19,7 +19,7 @@ tstart = 0.0
 tend = 1.0
 dt = 0.02
 
-# intial condition
+# initial condition
 u0 = 1.1
 
 # set of linear parameters Eq.~(2.2)
