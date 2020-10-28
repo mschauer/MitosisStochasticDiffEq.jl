@@ -104,7 +104,8 @@ we((x,c)) = x*exp(c)
 samples = [we(MitosisStochasticDiffEq.forwardguiding(sdekernel2, message, (u0, 0.0), Z=nothing; save_noise=true)[1][:,end]) for k in 1:K]
 
 @show std(samples)
+ptrue = Mitosis.density(p, [u0])
 p̃ = Mitosis.density(WGaussian{(:F,:Γ,:c)}(solend[2]\solend[1], inv(solend[2]), solend[3]), u0)
 @testset "Mitosis tilted forward" begin
-    @test_broken pT.μ[] ≈ mean(samples)*p̃ atol=0.02
+    @test pT.μ[] ≈ mean(samples)*p̃/ptrue atol=0.02
 end
