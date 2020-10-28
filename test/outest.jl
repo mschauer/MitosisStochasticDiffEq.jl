@@ -78,7 +78,7 @@ pT = kᵒ([u0])
 
 # initial values for ODE
 mynames = (:logscale, :μ, :Σ);
-myvalues = [0.0, y_, 0.1]; # start with observation μ=y with uncertainty Σ=10
+myvalues = [0.0, y_, 0.1]; # start with observation μ=y with uncertainty Σ=0.1
 NT = NamedTuple{mynames}(myvalues)
 solend, message = MitosisStochasticDiffEq.backwardfilter(sdekernel, NT)
 
@@ -95,7 +95,7 @@ samples = [MitosisStochasticDiffEq.forwardguiding(sdekernel, message, (u0, 0.0),
 end
 
 
-# try titled forward
+# try tilted forward
 
 solend, message = MitosisStochasticDiffEq.backwardfilter(sdekernel2, NT)
 solfw, ll = MitosisStochasticDiffEq.forwardguiding(sdekernel2, message, (u0, 0.0), Z=nothing; save_noise=true)
