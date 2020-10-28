@@ -88,11 +88,11 @@ end
 
 # linear approximation
 function b̃(u,p,t)
-  @. p[1]*u + p[2]
+    p[1]*u .+ p[2]
 end
 
 function σ̃(u,p,t)
-  fill(p[3], size(u))
+    p[3]
 end
 
 # function b̃(du,u,p,t)
@@ -131,8 +131,8 @@ function forwardguiding(k::SDEKernel, message, (x0, ll0), Z=nothing; alg=EM(fals
         cur_time[] += 1
         r = inv(P)*(ν .- x)
 
-        du[end] = dot(f(x,p,ti) -  b̃(x,ptilde,ti), r) - 0.5*tr((g(x,p,ti)*g(x,p,ti)' - σ̃(x,ptilde,ti)*σ̃(x,ptilde,ti)')*(inv(P) .- r*r'))
-        dx[:] .= vec(f(x, p, ti) .+ g(x, p, ti)*g(x, p, ti)'.*r) # evolution guided by observations
+        du[end] = dot(f(x,p,ti) -  b̃(x,ptilde,ti), r) - 0.5*tr((g(x,p,ti)*g(x,p,ti)' .- σ̃(x,ptilde,ti)*σ̃(x,ptilde,ti)')*(inv(P) .- r*r'))
+        dx[:] .= vec(f(x, p, ti) .+ g(x, p, ti)*g(x, p, ti)'*r) # evolution guided by observations
         return nothing
       end
     end
@@ -141,7 +141,6 @@ function forwardguiding(k::SDEKernel, message, (x0, ll0), Z=nothing; alg=EM(fals
       x = @view u[1:end-1]
 
       du[1:end-1] .= g(x,p,t)
-      du[end] = false*u[end]
       return nothing
     end
 
