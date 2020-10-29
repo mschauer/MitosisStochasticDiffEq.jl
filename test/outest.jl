@@ -28,7 +28,7 @@ plin = copy(par)
 pest = copy(par)
 sdekernel = MitosisStochasticDiffEq.SDEKernel(f,g,tstart,tend,pest,plin,dt=dt)
 
-plin2 = [-0.05, 0.07, 1.0]
+plin2 = par2 = [-0.05, 0.07, 1.0]
 sdekernel2 = MitosisStochasticDiffEq.SDEKernel(f,g,tstart,tend,pest,plin2,dt=dt)
 
 
@@ -41,15 +41,25 @@ samples = vcat.(samples_)
 # Compute transition density. See Ludvig Arnold (ISBN 9780486482361 ), also Proposition 3.5. in [1]
 B = fill(par[1], 1, 1)
 Φ = exp(B*(tend - tstart))
-β = fill(0.0, 1)
+β = fill(par[2]*(tend - tstart), 1)
 Σ = fill(par[3]^2, 1, 1)
 Λ = lyap(B, Σ)
 Q = Λ - Φ*Λ*Φ'
 
-
 gkernel = Mitosis.kernel(Gaussian; μ=AffineMap(Φ, β), Σ=ConstantMap(Q))
 
+B̃ = fill(par2[1], 1, 1)
+Φ̃ = exp(B̃*(tend - tstart))
+β̃ = fill(par2[2]*(tend - tstart), 1)
+Σ̃ = fill(par2[3]^2, 1, 1)
+Λ̃ = lyap(B̃, Σ̃)
+Q̃ = Λ̃ - Φ̃*Λ̃*Φ̃'
+
+gkernel2 = Mitosis.kernel(Gaussian; μ=AffineMap(Φ̃, β̃), Σ=ConstantMap(Q̃))
+
+
 p = gkernel([u0])
+
 p̂ = Gaussian{(:μ, :Σ)}(mean(samples), cov(samples))
 @test norm(p.μ - p̂.μ) < 5/sqrt(K)
 @test norm(p.Σ - p̂.Σ) < 5/sqrt(K)
@@ -71,7 +81,8 @@ message, solend = MitosisStochasticDiffEq.backwardfilter(sdekernel, NT)
 end
 
 # Try forward
-m, p = Mitosis.backwardfilter(gkernel, WGaussian{(:F, :Γ, :c)}(y*10.0, 10.0I, 0.0))
+V = WGaussian{(:F, :Γ, :c)}(y*10.0, 10.0I, 0.0)
+m, p = Mitosis.backwardfilter(gkernel, V)
 kᵒ = Mitosis.left′(BFFG(), gkernel, m)
 
 pT = kᵒ([u0])
@@ -97,15 +108,32 @@ end
 
 # try tilted forward
 
+
+m, p2 = Mitosis.backwardfilter(gkernel2, V)
+gᵒ = Mitosis.left′(BFFG(), gkernel, gkernel2, m, [u0])
+
 message, solend = MitosisStochasticDiffEq.backwardfilter(sdekernel2, NT)
+@testset "Mitosis backward tilted" begin
+    @test (p2.c)[] ≈ solend[3]
+    @test (p2.Γ\p2.F)[] ≈ solend[1] atol=0.02
+    @test inv(p2.Γ)[] ≈ solend[2] atol=0.02
+end
+
 solfw, ll = MitosisStochasticDiffEq.forwardguiding(sdekernel2, message, (u0, 0.0), Z=nothing; save_noise=true)
 
+
 we((x,c)) = x*exp(c)
-samples = [we(MitosisStochasticDiffEq.forwardguiding(sdekernel2, message, (u0, 0.0), Z=nothing; save_noise=true)[1][:,end]) for k in 1:K]
+samples2 = [MitosisStochasticDiffEq.forwardguiding(sdekernel2, message, (u0, 0.0), Z=nothing; save_noise=true)[1][:,end] for k in 1:K]
+
+samples = we.(samples2)
+
+
 
 @show std(samples)
 ptrue = Mitosis.density(p, [u0])
 p̃ = Mitosis.density(WGaussian{(:F,:Γ,:c)}(solend[2]\solend[1], inv(solend[2]), solend[3]), u0)
 @testset "Mitosis tilted forward" begin
     @test pT.μ[] ≈ mean(samples)*p̃/ptrue atol=0.02
+    @test gᵒ.μ[] ≈ mean(first.(samples2)) atol=0.03
+    @test gᵒ.c[] ≈ mean(last.(samples2)) atol=0.02
 end
