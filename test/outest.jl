@@ -26,10 +26,10 @@ u0 = 1.1
 # set of linear parameters Eq.~(2.2)
 plin = copy(par)
 pest = copy(par)
-sdekernel = MitosisStochasticDiffEq.SDEKernel(f,g,tstart,tend,pest,plin,p=par,dt=dt)
+sdekernel = MitosisStochasticDiffEq.SDEKernel(f,g,tstart,tend,pest,plin,dt=dt)
 
 plin2 = [-0.05, 0.07, 1.0]
-sdekernel2 = MitosisStochasticDiffEq.SDEKernel(f,g,tstart,tend,pest,plin2,p=par,dt=dt)
+sdekernel2 = MitosisStochasticDiffEq.SDEKernel(f,g,tstart,tend,pest,plin2,dt=dt)
 
 
 
@@ -62,7 +62,7 @@ mynames = (:logscale, :μ, :Σ);
 myvalues = [0.0, y_, 0.0]; # start with observation μ=y with uncertainty Σ=0
 NT = NamedTuple{mynames}(myvalues)
 
-solend, message = MitosisStochasticDiffEq.backwardfilter(sdekernel, NT)
+message, solend = MitosisStochasticDiffEq.backwardfilter(sdekernel, NT)
 
 @testset "Mitosis backward" begin
     @test (p.c)[] ≈ solend[3]
@@ -80,7 +80,7 @@ pT = kᵒ([u0])
 mynames = (:logscale, :μ, :Σ);
 myvalues = [0.0, y_, 0.1]; # start with observation μ=y with uncertainty Σ=0.1
 NT = NamedTuple{mynames}(myvalues)
-solend, message = MitosisStochasticDiffEq.backwardfilter(sdekernel, NT)
+message, solend = MitosisStochasticDiffEq.backwardfilter(sdekernel, NT)
 
 solfw, ll = MitosisStochasticDiffEq.forwardguiding(sdekernel, message, (u0, 0.0), Z=nothing; save_noise=true)
 
@@ -97,7 +97,7 @@ end
 
 # try tilted forward
 
-solend, message = MitosisStochasticDiffEq.backwardfilter(sdekernel2, NT)
+message, solend = MitosisStochasticDiffEq.backwardfilter(sdekernel2, NT)
 solfw, ll = MitosisStochasticDiffEq.forwardguiding(sdekernel2, message, (u0, 0.0), Z=nothing; save_noise=true)
 
 we((x,c)) = x*exp(c)

@@ -22,7 +22,7 @@ dt = 0.001
 u0 = 1.1
 
 
-kernel = MitosisStochasticDiffEq.SDEKernel(f,g,tstart,tend,pest,plin,p=p,dt=dt)
+kernel = MitosisStochasticDiffEq.SDEKernel(f,g,tstart,tend,pest,plin,dt=dt)
 
 
 # initial values for ODE
@@ -30,7 +30,7 @@ mynames = (:logscale, :μ, :Σ);
 myvalues = [0.0, 0.0, 10.0];
 NT = NamedTuple{mynames}(myvalues)
 
-backward, message = MitosisStochasticDiffEq.backwardfilter(kernel, NT)
+message, backward = MitosisStochasticDiffEq.backwardfilter(kernel, NT)
 
 x0 = randn()
 ll0 = randn()
@@ -104,8 +104,8 @@ W = sqrt(dt)*randn(length(t))
 W1 = cumsum([zero(dt); W[1:end-1]])
 NG = NoiseGrid(t,W1)
 
-kernel = MitosisStochasticDiffEq.SDEKernel(f,g,tstart,tend,pest,plin,p=p,dt=dt)
-solend, message = MitosisStochasticDiffEq.backwardfilter(kernel, NT)
+kernel = MitosisStochasticDiffEq.SDEKernel(f,g,tstart,tend,pest,plin,dt=dt)
+message, solend = MitosisStochasticDiffEq.backwardfilter(kernel, NT)
 
 x0 = randn(dim)
 ll0 = randn()
@@ -133,8 +133,8 @@ NT = NamedTuple{mynames}(myvalues)
 m = 2
 plin = [randn(dim,dim), randn(dim), randn(dim,m)] # B, β, σtil
 
-kernel = MitosisStochasticDiffEq.SDEKernel(f,g,tstart,tend,pest,plin,p=p,dt=dt)
-solend, message = MitosisStochasticDiffEq.backwardfilter(kernel, NT)
+kernel = MitosisStochasticDiffEq.SDEKernel(f,g,tstart,tend,pest,plin,dt=dt)
+message, solend = MitosisStochasticDiffEq.backwardfilter(kernel, NT)
 
 x0 = randn(dim)
 ll0 = randn()

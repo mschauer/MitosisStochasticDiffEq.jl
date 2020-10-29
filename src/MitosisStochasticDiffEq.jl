@@ -12,25 +12,24 @@ using Random
 using UnPack
 using Statistics
 
-struct SDEKernel{fType,gType,tType,dtType,paramType1,paramType2,paramType3}
+struct SDEKernel{fType,gType,tType,dtType,paramType1,paramType2}
     f::fType
     g::gType
     tstart::tType
     tend::tType
     dt::dtType
-    p::paramType1
-    pest::paramType2
-    plin::paramType3
+    pest::paramType1
+    plin::paramType2
 end
 
-function SDEKernel(f,g,tstart,tend,pest,plin;p=nothing,dt=nothing)
+function SDEKernel(f,g,tstart,tend,pest,plin;dt=nothing)
   SDEKernel{typeof(f),typeof(g),typeof(tstart),
-            typeof(dt),typeof(p),typeof(pest),typeof(plin)}(f,g,tstart,tend,dt,p,pest,plin)
+            typeof(dt),typeof(pest),typeof(plin)}(f,g,tstart,tend,dt,pest,plin)
 end
 
 function sample(k::SDEKernel, u0; alg=EM(false),kwargs...)
-    @unpack f, g, tstart, tend, p, dt = k
-    prob = SDEProblem(f, g, u0, (tstart,tend), p)
+    @unpack f, g, tstart, tend, pest, dt = k
+    prob = SDEProblem(f, g, u0, (tstart,tend), pest)
     sol = solve(prob, alg, dt = dt; kwargs...)
     return sol, sol[end]
 end
@@ -83,7 +82,7 @@ function backwardfilter(k::SDEKernel, (c, ν, P)::NamedTuple{(:logscale, :μ, :�
     prob = ODEProblem{inplace}(filterODE, u0, trange, plin)
     sol = solve(prob, alg, dt=dt)
     message = sol
-    return sol[end], message
+    return message, sol[end]
 end
 
 # linear approximation
