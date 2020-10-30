@@ -6,7 +6,3 @@ include("filter_test.jl")
 include("guiding_test.jl")
 
 include("outest.jl")
-
-@testset "MitosisStochasticDiffEq.jl" begin
-    # Write your tests here.
-end
