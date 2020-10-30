@@ -70,16 +70,14 @@ p̂ = Gaussian{(:μ, :Σ)}(mean(samples), cov(samples))
 
 m, p = Mitosis.backwardfilter(gkernel, y)
 # initial values for ODE
-mynames = (:logscale, :μ, :Σ);
-myvalues = [0.0, y_, 0.0]; # start with observation μ=y with uncertainty Σ=0
-NT = NamedTuple{mynames}(myvalues)
+WG = WGaussian{(:μ,:Σ,:c)}(y_, 0.0, 0.0) #
 
-message, solend = MitosisStochasticDiffEq.backwardfilter(sdekernel, NT)
+message, solend = MitosisStochasticDiffEq.backwardfilter(sdekernel, WG)
 
 @testset "Mitosis backward" begin
-    @test (p.c)[] ≈ solend[3]
-    @test (p.Γ\p.F)[] ≈ solend[1] atol=atol
-    @test inv(p.Γ)[] ≈ solend[2] atol=atol
+    @test (p.c)[] ≈ solend.c
+    @test (p.Γ\p.F)[] ≈ solend.μ atol=atol
+    @test inv(p.Γ)[] ≈ solend.Σ atol=atol
 end
 
 # Try forward
@@ -90,10 +88,8 @@ kᵒ = Mitosis.left′(BFFG(), gkernel, m)
 pT = kᵒ([u0])
 
 # initial values for ODE
-mynames = (:logscale, :μ, :Σ);
-myvalues = [0.0, y_, 0.2]; # start with observation μ=y with uncertainty Σ=0.1
-NT = NamedTuple{mynames}(myvalues)
-message, solend = MitosisStochasticDiffEq.backwardfilter(sdekernel, NT)
+WG = WGaussian{(:μ,:Σ,:c)}(y_, 0.2, 0.0) # start with observation μ=y with uncertainty Σ=0.1
+message, solend = MitosisStochasticDiffEq.backwardfilter(sdekernel, WG)
 
 solfw, ll = MitosisStochasticDiffEq.forwardguiding(sdekernel, message, (u0, 0.0), Z=nothing; save_noise=true)
 
@@ -114,11 +110,11 @@ end
 m, p2 = Mitosis.backwardfilter(gkernel2, V)
 gᵒ = Mitosis.left′(BFFG(), gkernel, gkernel2, m, [u0])
 
-message, solend = MitosisStochasticDiffEq.backwardfilter(sdekernel2, NT)
+message, solend = MitosisStochasticDiffEq.backwardfilter(sdekernel2, WG)
 @testset "Mitosis backward tilted" begin
-    @test (p2.c)[] ≈ solend[3]
-    @test (p2.Γ\p2.F)[] ≈ solend[1] atol=atol
-    @test inv(p2.Γ)[] ≈ solend[2] atol=atol
+    @test (p2.c)[] ≈ solend.c
+    @test (p2.Γ\p2.F)[] ≈ solend.μ atol=atol
+    @test inv(p2.Γ)[] ≈ solend.Σ atol=atol
 end
 
 solfw, ll = MitosisStochasticDiffEq.forwardguiding(sdekernel2, message, (u0, 0.0), Z=nothing; save_noise=true)
@@ -133,7 +129,7 @@ samples = we.(samples2)
 
 @show std(samples)
 ptrue = Mitosis.density(p, [u0])
-p̃ = Mitosis.density(WGaussian{(:F,:Γ,:c)}(solend[2]\solend[1], inv(solend[2]), solend[3]), u0)
+p̃ = Mitosis.density(WGaussian{(:F,:Γ,:c)}(solend.Σ\solend.μ, inv(solend.Σ), solend.c), u0)
 @testset "Mitosis tilted forward" begin
     @test pT.μ[] ≈ mean(samples)*p̃/ptrue atol=atol
     @test gᵒ.μ[] ≈ mean(first.(samples2)) atol=2atol
