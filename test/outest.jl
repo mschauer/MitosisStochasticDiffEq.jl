@@ -98,7 +98,6 @@ solfw, ll = MitosisStochasticDiffEq.forwardguiding(sdekernel, message, (u0, 0.0)
 
 samples = [MitosisStochasticDiffEq.forwardguiding(sdekernel, message, (u0, 0.0), Z=nothing; save_noise=true)[1][1,end] for k in 1:K]
 
-
 @testset "Mitosis forward" begin
     @test pT.μ[] ≈ mean(samples) atol=atol
     @test pT.Σ[] ≈ cov(samples) atol=atol
