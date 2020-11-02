@@ -34,6 +34,16 @@ function sample(k::SDEKernel, u0; alg=EM(false),kwargs...)
     return sol, sol[end]
 end
 
+function sample(k::SDEKernel, u0, numtraj, ensemblealg=EnsembleThreads(), output_func=(sol,i) -> (sol[end],false); alg=EM(false),kwargs...)
+    @unpack f, g, tstart, tend, pest, dt = k
+    prob = SDEProblem(f, g, u0, (tstart,tend), pest)
+    ensembleprob = EnsembleProblem(prob, output_func = output_func)
+
+    sol = solve(ensembleprob, alg, ensemblealg, dt = dt, trajectories=numtraj; kwargs...)
+    return sol
+end
+
+
 myunpack(a) = a
 myunpack(a::ArrayPartition) = (a.x[1], a.x[2], a.x[3][])
 mypack(a,b,c) = ArrayPartition(a,b,[c])
@@ -90,6 +100,7 @@ function backwardfilter(k::SDEKernel, (c, ν, P)::NamedTuple{(:logscale, :μ, :�
     return message, sol[end]
 end
 
+
 # linear approximation
 function b̃(u,p,t)
     p[1]*u .+ p[2]
@@ -99,19 +110,12 @@ function σ̃(u,p,t)
     p[3]
 end
 
-# function b̃(du,u,p,t)
-#   @inbounds begin
-#     @. du = p[1]*u + p[2]
-#   end
-#   return nothing
-# end
-#
-# function σ̃(du,u,p,t)
-#   @inbounds begin
-#     du .= p[3]
-#   end
-#   return nothing
-# end
+function guided_g(du,u,p,t)
+  x = @view u[1:end-1]
+
+  du[1:end-1] .= g(x,p,t)
+  return nothing
+end
 
 function forwardguiding(k::SDEKernel, message, (x0, ll0), Z=nothing; alg=EM(false), kwargs...)
     @unpack f, g, tstart, tend, pest, plin, dt = k
@@ -139,13 +143,6 @@ function forwardguiding(k::SDEKernel, message, (x0, ll0), Z=nothing; alg=EM(fals
         dx[:] .= vec(f(x, p, ti) .+ g(x, p, ti)*g(x, p, ti)'*r) # evolution guided by observations
         return nothing
       end
-    end
-
-    function guided_g(du,u,p,t)
-      x = @view u[1:end-1]
-
-      du[1:end-1] .= g(x,p,t)
-      return nothing
     end
 
     if Z!=nothing

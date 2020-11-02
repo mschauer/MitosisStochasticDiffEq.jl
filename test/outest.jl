@@ -37,7 +37,8 @@ sol, y_ = MitosisStochasticDiffEq.sample(sdekernel, u0, save_noise=true)
 
 y_ = 1.39
 y = vcat(y_)
-samples_ = [MitosisStochasticDiffEq.sample(sdekernel, u0, save_noise=true)[2] for k in 1:K]
+samples_ = MitosisStochasticDiffEq.sample(sdekernel, u0, K, save_noise=true).u
+
 samples = vcat.(samples_)
 
 # Compute transition density. See Ludvig Arnold (ISBN 9780486482361 ), also Proposition 3.5. in [1]
@@ -96,6 +97,7 @@ solfw, ll = MitosisStochasticDiffEq.forwardguiding(sdekernel, message, (u0, 0.0)
 @test ll == 0
 
 samples = [MitosisStochasticDiffEq.forwardguiding(sdekernel, message, (u0, 0.0), Z=nothing; save_noise=true)[1][1,end] for k in 1:K]
+
 
 @testset "Mitosis forward" begin
     @test pT.μ[] ≈ mean(samples) atol=atol
