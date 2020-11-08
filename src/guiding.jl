@@ -7,50 +7,100 @@ function σ̃(u,p,t)
   p[3]
 end
 
+# guided drift
+function (G::GuidingDriftCache)(du,u,p,t)
+  @unpack k, sol, soldis, ts = G
+  @unpack f, g = k
+
+  x = @view u[1:end-1]
+  dx =  @view du[1:end-1]
+
+  # find cursor
+  @inbounds cur_time = searchsortedfirst(ts,t-10eps(typeof(t)),rev=false)
+
+  if isapprox(t, ts[cur_time]; atol = 100eps(typeof(t)), rtol = 100eps(t))
+    # non-interpolating version
+    # take care for multivariate case here if P isa Matrix, ν  isa Vector, c isa Scalar
+    # ν, P, c
+    ν, P, _ = soldis[:,cur_time]
+    r = inv(P)*(ν .- x)
+
+    du[end] = dot(f(x,p,t) -  b̃(x,k.plin,t), r) - 0.5*tr((g(x,p,t)*g(x,p,t)' .- σ̃(x,k.plin,t)*σ̃(x,k.plin,t)')*(inv(P) .- r*r'))
+    dx[:] .= vec(f(x, p, t) .+ g(x, p, t)*g(x, p, t)'*r) # evolution guided by observations
+  else
+    error("Interpolation in forwardguiding is not yet implemented.")
+  end
+
+  return nothing
+end
+
+function (G::GuidingDriftCache)(u,p,t)
+  @unpack k, sol, soldis, ts = G
+  @unpack f, g = k
+
+  x = @view u[1:end-1]
+
+  # find cursor
+  @inbounds cur_time = searchsortedfirst(ts,t-10eps(typeof(t)),rev=false)
+
+  if isapprox(t, ts[cur_time]; atol = 100eps(typeof(t)), rtol = 100eps(t))
+    # non-interpolating version
+    # take care for multivariate case here if P isa Matrix, ν  isa Vector, c isa Scalar
+    # ν, P, c
+    ν, P, _ = soldis[:,cur_time]
+    r = inv(P)*(ν .- x)
+
+    dl = dot(f(x,p,t) -  b̃(x,k.plin,t), r) - 0.5*tr((g(x,p,t)*g(x,p,t)' .- σ̃(x,k.plin,t)*σ̃(x,k.plin,t)')*(inv(P) .- r*r'))
+    dx = vec(f(x, p, t) .+ g(x, p, t)*g(x, p, t)'*r) # evolution guided by observations
+  else
+    error("Interpolation in forwardguiding is not yet implemented.")
+  end
+
+  return [dx; dl]
+end
+
+# guided diffusion
+function (G::GuidingDiffusionCache)(du,u,p,t)
+  @unpack g = G
+
+  x = @view u[1:end-1]
+
+  du[1:end-1] .= g(x,p,t)
+  return nothing
+end
+
+function (G::GuidingDiffusionCache)(u,p,t)
+  @unpack g = G
+
+  x = @view u[1:end-1]
+
+  dx = g(x,p,t)
+
+  return [dx; zero(eltype(u))]
+end
+
+
 function forwardguiding(k::SDEKernel, message, (x0, ll0), Z=nothing; alg=EM(false),
-  numtraj=nothing, ensemblealg=EnsembleThreads(), output_func=(sol,i) -> (sol,false), kwargs...)
+  numtraj=nothing, ensemblealg=EnsembleThreads(), output_func=(sol,i) -> (sol,false), inplace=true, kwargs...)
     @unpack f, g, tstart, tend, pest, plin, dt = k
 
     trange = (tstart, tend)
-    u0 = [x0; ll0]
-
-    # non-interpolating version
-    guided_f = let sol=reverse(Array(message), dims=2), ts = reverse(message.t), ptilde=plin
-      function (du,u,p,t)
-
-        x = @view u[1:end-1]
-        dx =  @view du[1:end-1]
-
-        # find cursor
-        @inbounds cur_time = searchsortedfirst(ts,t-10eps(typeof(t)),rev=false)
-
-        if isapprox(t, ts[cur_time]; atol = 100eps(typeof(t)), rtol = 100eps(t))
-          # take care for multivariate case here if P isa Matrix, ν  isa Vector, c isa Scalar
-          # ν, P, c
-          ν, P, _ = sol[:,cur_time]
-          r = inv(P)*(ν .- x)
-
-          du[end] = dot(f(x,p,t) -  b̃(x,ptilde,t), r) - 0.5*tr((g(x,p,t)*g(x,p,t)' .- σ̃(x,ptilde,t)*σ̃(x,ptilde,t)')*(inv(P) .- r*r'))
-          dx[:] .= vec(f(x, p, t) .+ g(x, p, t)*g(x, p, t)'*r) # evolution guided by observations
-        else
-          error("Interpolation in forwardguiding is not yet implemented.")
-        end
-
-        return nothing
-      end
+    if inplace
+      u0 = [x0; ll0]
+    else
+      u0 = [x0; ll0]
     end
 
-    function guided_g(du,u,p,t)
-      x = @view u[1:end-1]
+    soldis = reverse(Array(message), dims=2)
+    ts = reverse(message.t)
 
-      du[1:end-1] .= g(x,p,t)
-      return nothing
-    end
+    guided_f = GuidingDriftCache(k,soldis,message,ts)
+    guided_g = GuidingDiffusionCache(g)
 
     if Z!=nothing
-      prob = SDEProblem(guided_f, guided_g, u0, trange, pest, noise=Z)
+      prob = SDEProblem{inplace}(guided_f, guided_g, u0, trange, pest, noise=Z)
     else
-      prob = SDEProblem(guided_f, guided_g, u0, trange, pest)
+      prob = SDEProblem{inplace}(guided_f, guided_g, u0, trange, pest)
     end
 
     if numtraj==nothing
