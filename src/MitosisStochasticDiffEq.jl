@@ -11,6 +11,7 @@ using Random
 #using Parameters
 using UnPack
 using Statistics
+using StaticArrays
 
 include("types.jl")
 include("sample.jl")

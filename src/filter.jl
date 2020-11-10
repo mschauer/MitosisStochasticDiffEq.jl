@@ -2,6 +2,8 @@ myunpack(a) = a
 myunpack(a::ArrayPartition) = (a.x[1], a.x[2], a.x[3][])
 mypack(a,b,c) = ArrayPartition(a,b,[c])
 mypack(a::Number...) = [a...]
+mypack(a::SArray,b::SArray,c::Number) = ArrayPartition(a,b,@SVector[c])
+mypack(a::SArray,b::SArray,c::SArray) = ArrayPartition(a,b,c)
 
 function filterODE(u, p, t)
   B, β, σtil = p
