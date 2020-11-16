@@ -26,7 +26,7 @@ end
 
 # time span
 tstart = 0.0
-tend = 1.0
+tend = 20.0
 dt = 0.01
 
 # initial condition
