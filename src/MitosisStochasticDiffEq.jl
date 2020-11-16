@@ -17,5 +17,6 @@ include("types.jl")
 include("sample.jl")
 include("filter.jl")
 include("guiding.jl")
+include("regression.jl")
 
 end
