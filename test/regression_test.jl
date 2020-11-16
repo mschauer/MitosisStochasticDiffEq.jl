@@ -45,7 +45,17 @@ sol, solend = MitosisStochasticDiffEq.sample(sdekernel, u0, save_noise=true)
 
 R = MitosisStochasticDiffEq.Regression(sdekernel,yprototype,ϕprototype,paramjac=f_jac,intercept=ϕ0)
 
-Π = [MitosisStochasticDiffEq.conjugate(R, sol, 0.1*I) for i in 1:K]
+
+Π = []
+for i=1:K
+  G = MitosisStochasticDiffEq.conjugate(R, sol, 0.1*I)
+  mu = G.F
+  Gamma = G.Γ
+  WL = (cholesky(Hermitian(Gamma)).U)'
+  th° = WL'\(randn(size(mu))+WL\mu)
+  push!(Π,th°)
+end
+
 
 
 """
@@ -88,8 +98,8 @@ end
 @test par[1:2] ≈ mean(Π2) rtol=0.2
 @test mean(Π) ≈ mean(Π2) atol=0.1
 
-using Plots
-pl = scatter(first.(Π), last.(Π), markersize=1, c=:blue, label="posterior samples")
-scatter!(first.(Π2), last.(Π2), markersize=1, c=:green, label="posterior samples")
-scatter!([par[1]], [par[2]], color="red", label="truth")
-savefig(pl, "regression.png")
+# using Plots
+# pl = scatter(first.(Π), last.(Π), markersize=1, c=:blue, label="posterior samples")
+# scatter!(first.(Π2), last.(Π2), markersize=1, c=:green, label="posterior samples")
+# scatter!([par[1]], [par[2]], color="red", label="truth")
+# savefig(pl, "regression.png")

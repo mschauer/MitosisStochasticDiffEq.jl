@@ -1,4 +1,4 @@
-function conjugate(r::Regression, Y, Ξ)
+function conjugate(r::Regression, Y, Ξ, μ0=nothing, Γ0=nothing)
   @unpack k, fjac!, ϕ0func!, ϕ, μ, Γ, ϕ0, y, y2 = r
   @unpack g, pest = k
 
@@ -6,8 +6,13 @@ function conjugate(r::Regression, Y, Ξ)
   y .= Y.u[1]
 
   fjac!(ϕ, y, pest, t)
-  fill!(μ, zero(eltype(ϕ)))
-  fill!(Γ, zero(eltype(ϕ)))
+  if μ0 !== nothing
+    copyto!(μ, μ0)
+    copyto!(Γ, Γ0)
+  else
+    fill!(μ, zero(eltype(ϕ)))
+    fill!(Γ, zero(eltype(ϕ)))
+  end
 
   for i in 1:length(Y)-1
     fjac!(ϕ, y, pest, t)
@@ -27,7 +32,6 @@ function conjugate(r::Regression, Y, Ξ)
     Γ .= Γ + zi*ds
   end
   WW = Γ + Ξ
-  WL = (cholesky(Hermitian(WW)).U)'
-  th° = WL'\(randn(size(μ))+WL\μ)
-  return th°
+
+  return Mitosis.Gaussian{(:F,:Γ)}(μ, WW)
 end
