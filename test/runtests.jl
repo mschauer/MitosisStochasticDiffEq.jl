@@ -1,9 +1,11 @@
 using MitosisStochasticDiffEq
 using Test
 
-include("sample_test.jl")
-include("filter_test.jl")
-include("guiding_test.jl")
-include("ensemble_test.jl")
-include("static_array_test.jl")
-include("outest.jl")
+println("Run tests.")
+@time include("sample_test.jl")
+@time include("filter_test.jl")
+@time include("guiding_test.jl")
+@time include("ensemble_test.jl")
+@time include("static_array_test.jl")
+@time include("mitosis_test.jl")
+@time include("regression_test.jl")

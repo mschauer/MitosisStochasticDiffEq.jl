@@ -26,13 +26,11 @@ struct GuidingDiffusionCache{gType}
 end
 
 
-mutable struct Regression{kernelType,pJType,ifuncType,phiType,muType,GammaType,uType}
+mutable struct Regression{kernelType,pJType,ifuncType,phiType,uType}
   k::kernelType
   fjac!::pJType
   ϕ0func!::ifuncType
   ϕ::phiType
-  μ::muType
-  Γ::GammaType
   ϕ0::uType
   y::uType
   y2::uType
@@ -46,9 +44,6 @@ function Regression(sdekernel,yprototype,ϕprototype;
   ϕ0 = similar(y)
 
   ϕ = similar(ϕprototype)
-  μ = similar(vec(ϕprototype))
-  Γ = similar(μ*μ')
 
-  Regression{typeof(sdekernel),typeof(paramjac),typeof(intercept),typeof(ϕ),
-    typeof(μ),typeof(Γ),typeof(y)}(sdekernel,paramjac,intercept,ϕ,μ,Γ,ϕ0,y,y2)
+  Regression{typeof(sdekernel),typeof(paramjac),typeof(intercept),typeof(ϕ),typeof(y)}(sdekernel,paramjac,intercept,ϕ,ϕ0,y,y2)
 end
