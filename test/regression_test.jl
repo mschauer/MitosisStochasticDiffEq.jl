@@ -33,7 +33,7 @@ dt = 0.01
 u0 = 1.1
 
 # set true model parameters
-par = [-0.2, 0.1, 0.9]
+par = [-0.2, 0.1, 0.09]
 
 # set of linear parameters Eq.~(2.2)
 plin = copy(par)
