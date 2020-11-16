@@ -4,7 +4,7 @@ using Statistics
 using LinearAlgebra
 
 K = 10000
-Random.seed!(1234)
+Random.seed!(100)
 
 # define SDE function
 f(u,p,t) = p[1]*u .+ p[2]
@@ -89,6 +89,7 @@ end
 @test mean(Π) ≈ mean(Π2) atol=0.1
 
 using Plots
-scatter(first.(Π), last.(Π), markersize=1, c=:blue, label="posterior samples")
+pl = scatter(first.(Π), last.(Π), markersize=1, c=:blue, label="posterior samples")
 scatter!(first.(Π2), last.(Π2), markersize=1, c=:green, label="posterior samples")
 scatter!([par[1]], [par[2]], color="red", label="truth")
+savefig(pl, "regression.png")
