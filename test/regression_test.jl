@@ -3,7 +3,7 @@ using Test, Random
 using Statistics
 using LinearAlgebra
 
-K = 10000
+K = 1000
 Random.seed!(100)
 
 # define SDE function
@@ -13,7 +13,7 @@ g(u,p,t) = p[3]
 # paramjac
 function f_jac(J,u,p,t)
   J[1,1] = u[1]
-  J[1,2] = 0
+  J[1,2] = true
   nothing
 end
 ϕprototype = zeros((1,2))
@@ -26,14 +26,14 @@ end
 
 # time span
 tstart = 0.0
-tend = 20.0
+tend = 200.0
 dt = 0.01
 
 # initial condition
 u0 = 1.1
 
 # set true model parameters
-par = [-0.2, 0.1, 0.09]
+par = [-0.3, 0.2, 0.5]
 
 # set of linear parameters Eq.~(2.2)
 plin = copy(par)
@@ -57,7 +57,7 @@ Adjusted from http://www.math.chalmers.se/~smoritz/journal/2018/01/19/parameter-
 for Bridge.jl
 """
 function conjugate_posterior(Y, Ξ)
-    paramgrad(t, u) = [u, 0]
+    paramgrad(t, u) = [u, 1]
     paramintercept(t, u) = 0
     t, y = Y.t[1], Y.u[1]
     ϕ = paramgrad(t, y)
@@ -84,8 +84,8 @@ end
 
 Π2 = [conjugate_posterior(sol, 0.1*I) for i in 1:K]
 
-@test_broken par[1:2] ≈ mean(Π) rtol=0.1
-@test_broken par[1:2] ≈ mean(Π2) rtol=0.1
+@test par[1:2] ≈ mean(Π) rtol=0.2
+@test par[1:2] ≈ mean(Π2) rtol=0.2
 @test mean(Π) ≈ mean(Π2) atol=0.1
 
 using Plots
