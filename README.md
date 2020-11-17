@@ -4,20 +4,22 @@
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://mschauer.github.io/MitosisStochasticDiffEq.jl/dev)
 [![Build Status](https://travis-ci.com/mschauer/MitosisStochasticDiffEq.jl.svg?branch=master)](https://travis-ci.com/mschauer/MitosisStochasticDiffEq.jl)
 
+Implements the [Mitosis transformation rules](https://github.com/mschauer/Mitosis.jl) `backwardfilter` and `forwardguiding` for for SciML's [`StochasticDiffEq`](https://github.com/SciML/StochasticDiffEq.jl) problems. 
 
-Implement the [Mitosis transformation rules](https://github.com/mschauer/Mitosis.jl) `backwardfilter` and `forwardguiding` for for SciML's [`StochasticDiffEq`](https://github.com/SciML/StochasticDiffEq.jl) problems. 
+If the (possibly non-linear) drift depends linearly on parameters, estimate the parameters from continuous observations by `regression`. 
+
 
 ## Prerequisites
 
 Unregistered package. Requires
 * https://github.com/mschauer/Mitosis.jl (unregistered)
 
+
 ## Synopsis
 
 MitosisStochasticDiffEq implements the backward filter and the forward change of measure  of the Automatic Backward Filtering Forward Guiding paradigm  (van der Meulen and Schauer, 2020) as transformation rules for SDE models,  suitable to be incorporated into probabilistic programming approaches.
 
 In particular, this package implements the equations ... of section 9.1, [2] further detailed in [1]. The recursion for the quantity c in [1, Theorem 3.3 (Information filter)] is replaced by the simpler rule from [2, Example 10.8.]
-
 
 
 ## References
