@@ -1,7 +1,5 @@
-using Revise
 using MitosisStochasticDiffEq
 using Mitosis
-using Test, Random
 using Statistics
 using LinearAlgebra
 using StochasticDiffEq
@@ -23,7 +21,7 @@ function g(du,u,p,t)
   du[3] = 3.0
   du
 end
-g(u,p,t) = g(zeros(3), u,p,t)
+g(u,p,t) = g(zeros(3),u,p,t)
 
 
 # create solution with true parameters
@@ -57,7 +55,6 @@ end
 
 # Solve the regression problem
 sdekernel = MitosisStochasticDiffEq.SDEKernel(f,g,tspan...,p,p,dt=dt)
-
 
 ϕprototype = zeros((3,3)) # prototypes for vectors
 yprototype = zeros((3,))
