@@ -14,8 +14,8 @@ function filterODE(u, p, t)
 #  H = inv(P)
 #  F = H*ν
 
-  dP = B*P + P*B' .- σtil*σtil'
-  dν = B*ν .+ β
+  dP = B*P + P*B' - σtil*σtil'
+  dν = B*ν + β
   dc = tr(B)
 
   return mypack(dν, dP, dc)
@@ -30,8 +30,8 @@ function filterODE(du, u, p, t)
 #  H = inv(P)
 #  F = H*ν
 
-  du.x[1] .= B*ν .+ β
-  du.x[2] .= B*P + P*B' .- σtil*σtil'
+  du.x[1] .= B*ν + β
+  du.x[2] .= B*P + P*B' - σtil*σtil'
   du.x[3] .= tr(B)
 
   return nothing

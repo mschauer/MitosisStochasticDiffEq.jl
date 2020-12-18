@@ -1,3 +1,12 @@
+function range2ind(ts::AbstractRange, t)
+  round(Int, t*step(ts) - start(ts))
+end
+
+function range2ind(ts::AbstractVector, t)
+  r = searchsorted(ts, t)
+  return abs(ts[first(r)] - t) < abs(ts[last(r)] - t) ? first(r) : last(r)
+end
+
 # linear approximation
 function b̃(u,p,t)
   p[1]*u .+ p[2]
@@ -16,17 +25,19 @@ function (G::GuidingDriftCache)(du,u,p,t)
   dx =  @view du[1:end-1]
 
   # find cursor
-  @inbounds cur_time = searchsortedfirst(ts,t-10eps(typeof(t)),rev=false)
+  @inbounds cur_time = range2ind(ts, t)
 
-  if isapprox(t, ts[cur_time]; atol = 100eps(typeof(t)), rtol = 100eps(t))
+  if isapprox(t, ts[cur_time]; atol = 1000eps(typeof(t)), rtol = 1000eps(t))
     # non-interpolating version
     # take care for multivariate case here if P isa Matrix, ν  isa Vector, c isa Scalar
     # ν, P, c
-    ν, P, _ = soldis[:,cur_time]
-    r = inv(P)*(ν .- x)
+    ν = @view soldis[1:d,cur_time]
+    P = reshape(@view(soldis[d+1:d+d*d,cur_time]), d, d)
+  
+    r = P\(ν - x)
 
-    du[end] = dot(f(x,p,t) -  b̃(x,k.plin,t), r) - 0.5*tr((g(x,p,t)*g(x,p,t)' .- σ̃(x,k.plin,t)*σ̃(x,k.plin,t)')*(inv(P) .- r*r'))
-    dx[:] .= vec(f(x, p, t) .+ g(x, p, t)*g(x, p, t)'*r) # evolution guided by observations
+    du[end] = dot(f(x,p,t) -  b̃(x,k.plin,t), r) - 0.5*tr((outer_(g(x,p,t)) - σ̃(x,k.plin,t)*σ̃(x,k.plin,t)')*(inv(P) - r*r'))
+    dx[:] .= vec(f(x, p, t) + (outer_(g(x, p, t))*r)) # evolution guided by observations
   else
     error("Interpolation in forwardguiding is not yet implemented.")
   end
@@ -39,19 +50,21 @@ function (G::GuidingDriftCache)(u,p,t)
   @unpack f, g = k
 
   x = @view u[1:end-1]
+  d = length(x)
 
   # find cursor
-  @inbounds cur_time = searchsortedfirst(ts,t-10eps(typeof(t)),rev=false)
+  @inbounds cur_time = range2ind(ts, t)
 
-  if isapprox(t, ts[cur_time]; atol = 100eps(typeof(t)), rtol = 100eps(t))
+  if isapprox(t, ts[cur_time]; atol = 1000eps(typeof(t)), rtol = 1000eps(t))
     # non-interpolating version
     # take care for multivariate case here if P isa Matrix, ν  isa Vector, c isa Scalar
     # ν, P, c
-    ν, P, _ = soldis[:,cur_time]
-    r = inv(P)*(ν .- x)
+    ν = @view soldis[1:d,cur_time]
+    P = reshape(@view(soldis[d+1:d+d*d,cur_time]), d, d)
+    r = P\(ν .- x)
 
-    dl = dot(f(x,p,t) -  b̃(x,k.plin,t), r) - 0.5*tr((g(x,p,t)*g(x,p,t)' .- σ̃(x,k.plin,t)*σ̃(x,k.plin,t)')*(inv(P) .- r*r'))
-    dx = vec(f(x, p, t) .+ g(x, p, t)*g(x, p, t)'*r) # evolution guided by observations
+    dl = dot(f(x,p,t) -  b̃(x,k.plin,t), r) - 0.5*tr((outer_(g(x,p,t)) - σ̃(x,k.plin,t)*σ̃(x,k.plin,t)')*(inv(P) .- r*r'))
+    dx = vec(f(x, p, t) + outer_(g(x, p, t))*r) # evolution guided by observations
   else
     error("Interpolation in forwardguiding is not yet implemented.")
   end
