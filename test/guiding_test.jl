@@ -3,6 +3,12 @@ using DiffEqNoiseProcess
 using Test, Random
 using LinearAlgebra
 
+# Test outer function
+exA = rand(10,10)
+@test minimum(MitosisStochasticDiffEq.outer_(exA) .!= 0)
+exB = Diagonal(exA)
+@test sum(MitosisStochasticDiffEq.outer_(exB) .!= 0) == 10
+
 # set true model parameters
 p = [-0.1,0.2,0.9]
 # define SDE function
@@ -50,17 +56,23 @@ function forwardguiding(plin, pest, s, (x, ll), ps, Z=randn(length(s)), noisetyp
     flinear(u,p,t) = p[1]*u .+ p[2]
     σlinear(u,p,t) = p[3]
 
-    llstep(x, r, t, P) = dot(f(x,pest,t) - flinear(x,plin,t), r) -0.5*tr((g(x,pest,t)*g(x,pest,t)' - σlinear(x,plin,t)*σlinear(x,plin,t)')*(inv(P) .- r*r'))
+    function llstep(x, r, t, P, noisetype)
+      tmp = MitosisStochasticDiffEq.outer_(g(x,pest,t)) - MitosisStochasticDiffEq.outer_(σlinear(x,plin,t))
+      dll = dot(f(x,pest,t) - flinear(x,plin,t), r) -0.5*tr(tmp*(inv(P) .- r*r'))
+    end
+
     xs = typeof(x)[]
+    d = length(x)
     for i in eachindex(s)[1:end-1]
         dt = s[i+1] - s[i]
         t = s[i]
         push!(xs, x)
-
-        ν, P, _ = ps[:,i]
+        ν = @view ps[:,i][1:d]
+        P = reshape(@view(ps[:,i][d+1:d+d*d]), d, d)
         r = inv(P)*(ν .- x)
 
-        ll += llstep(x, r, t, P)*dt # accumulate log-likelihood
+        ll += llstep(x, r, t, P, noisetype)*dt # accumulate log-likelihood
+
         if noisetype == :scalar
             noise = g(x,pest,t)*Z[i] #sqrt(dt)*Z[i]
         elseif noisetype ==:diag
@@ -70,7 +82,13 @@ function forwardguiding(plin, pest, s, (x, ll), ps, Z=randn(length(s)), noisetyp
         else
             error("noisetype not understood.")
         end
-        x = x + f(x,pest,t)*dt + g(x,pest,t)*g(x,pest,t)'*r*dt + noise # evolution guided by observations
+        if x isa Number
+           tmp = (MitosisStochasticDiffEq.outer_(g(x,pest,t))*r*dt)[1]
+       else
+           tmp = MitosisStochasticDiffEq.outer_(g(x,pest,t))*r*dt
+       end
+        x = x + f(x,pest,t)*dt + tmp + noise # evolution guided by observations
+
     end
     push!(xs, x)
     xs, ll
@@ -114,7 +132,7 @@ solfw, ll = MitosisStochasticDiffEq.forwardguiding(kernel, message, (x0, ll0), N
 
 
 ps = reverse(Array(message), dims=2)
-solfw2, ll2 = forwardguiding(plin, pest, reverse(message.t), (x0, ll0),ps,W)
+solfw2, ll2 = forwardguiding(plin, pest, reverse(message.t), (x0, ll0), ps, W)
 
 @test isapprox(Array(solfw)[1:dim,:], hcat(solfw2 ...), rtol=1e-12)
 @test isapprox(ll, ll2, rtol=1e-12)

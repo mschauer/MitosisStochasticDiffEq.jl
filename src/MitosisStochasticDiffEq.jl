@@ -13,8 +13,8 @@ using UnPack
 using Statistics
 using StaticArrays
 
-println("runs")
 outer_(x) = x*x'
+outer_(x::Number) = Diagonal([x*x'])
 outer_(x::AbstractVector) = Diagonal(x.*x)
 
 include("types.jl")

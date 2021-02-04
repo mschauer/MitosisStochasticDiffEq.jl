@@ -12,9 +12,16 @@ function b̃(u,p,t)
   p[1]*u .+ p[2]
 end
 
-function σ̃(u,p,t)
-  p[3]
+function σ̃(u,p::Number,t)
+  # p[3] from plin
+  [p]
 end
+
+function σ̃(u,p,t)
+  # p[3] from plin
+  p
+end
+
 
 # guided drift
 function (G::GuidingDriftCache)(du,u,p,t)
@@ -22,7 +29,8 @@ function (G::GuidingDriftCache)(du,u,p,t)
   @unpack f, g = k
 
   x = @view u[1:end-1]
-  dx =  @view du[1:end-1]
+  dx = @view du[1:end-1]
+  d = length(x)
 
   # find cursor
   @inbounds cur_time = range2ind(ts, t)
@@ -33,10 +41,10 @@ function (G::GuidingDriftCache)(du,u,p,t)
     # ν, P, c
     ν = @view soldis[1:d,cur_time]
     P = reshape(@view(soldis[d+1:d+d*d,cur_time]), d, d)
-  
+
     r = P\(ν - x)
 
-    du[end] = dot(f(x,p,t) -  b̃(x,k.plin,t), r) - 0.5*tr((outer_(g(x,p,t)) - σ̃(x,k.plin,t)*σ̃(x,k.plin,t)')*(inv(P) - r*r'))
+    du[end] = dot(f(x,p,t) - b̃(x,k.plin,t), r) - 0.5*tr((outer_(g(x,p,t)) - outer_(σ̃(x,k.plin[3],t)))*(inv(P) - r*r'))
     dx[:] .= vec(f(x, p, t) + (outer_(g(x, p, t))*r)) # evolution guided by observations
   else
     error("Interpolation in forwardguiding is not yet implemented.")
@@ -63,7 +71,7 @@ function (G::GuidingDriftCache)(u,p,t)
     P = reshape(@view(soldis[d+1:d+d*d,cur_time]), d, d)
     r = P\(ν .- x)
 
-    dl = dot(f(x,p,t) -  b̃(x,k.plin,t), r) - 0.5*tr((outer_(g(x,p,t)) - σ̃(x,k.plin,t)*σ̃(x,k.plin,t)')*(inv(P) .- r*r'))
+    dl = dot(f(x,p,t) -  b̃(x,k.plin,t), r) - 0.5*tr((outer_(g(x,p,t)) - outer_(σ̃(x,k.plin[3],t)))*(inv(P) .- r*r'))
     dx = vec(f(x, p, t) + outer_(g(x, p, t))*r) # evolution guided by observations
   else
     error("Interpolation in forwardguiding is not yet implemented.")
