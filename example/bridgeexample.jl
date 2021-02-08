@@ -1,5 +1,4 @@
 using LinearAlgebra, StaticArrays
-using Revise
 I4 = SMatrix{4,4}(I)
 
 # Define your noisy linear system
