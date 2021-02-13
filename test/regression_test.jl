@@ -78,7 +78,8 @@ sdekernel = MitosisStochasticDiffEq.SDEKernel(f,g,tstart,tend,pest,plin,dt=dt)
 # sample using MitosisStochasticDiffEq and EM default
 sol, solend = MitosisStochasticDiffEq.sample(sdekernel, u0, save_noise=true)
 
-R = MitosisStochasticDiffEq.Regression(sdekernel,yprototype,ϕprototype,paramjac=f_jac,intercept=ϕ0)
+R = MitosisStochasticDiffEq.Regression(sdekernel,yprototype,
+   paramjac_prototype=ϕprototype,paramjac=f_jac,intercept=ϕ0)
 
 
 Π = []
@@ -87,6 +88,26 @@ R = MitosisStochasticDiffEq.Regression(sdekernel,yprototype,ϕprototype,paramjac
 G = MitosisStochasticDiffEq.conjugate(R, sol, 0.1*I(2))
 G2 = conjugate_posterior(sol, 0.1*I(2))
 
+@test G == G2
+
+# test with ForwardDiff
+using ForwardDiff
+pf = MitosisStochasticDiffEq.ParamJacobianWrapper(sdekernel.f,sdekernel.tstart,[u0])
+f_jac(ϕprototype,[u0],pest,sdekernel.tstart)
+@test ForwardDiff.jacobian(pf, @view(pest[1:2])) == ϕprototype
+
+RAD = MitosisStochasticDiffEq.Regression(sdekernel,yprototype,paramjac_prototype=ϕprototype,intercept=ϕ0,θ=pest[1:2])
+GAD = MitosisStochasticDiffEq.conjugate(RAD, sol, 0.1*I(2))
+
+@test G == GAD
+
+RAD = MitosisStochasticDiffEq.Regression(sdekernel,yprototype,intercept=ϕ0,θ=pest[1:2])
+GAD = MitosisStochasticDiffEq.conjugate(RAD, sol, 0.1*I(2))
+
+@test G == GAD
+
+
+# test samples
 mu = G.F
 Gamma = G.Γ
 WL = (cholesky(Hermitian(Gamma)).U)'
@@ -108,8 +129,6 @@ for i=1:K
   th° = WL'\(randn(size(mu))+WL\mu)
   push!(Π2,th°)
 end
-
-
 
 
 @test par[1:2] ≈ mean(Π) rtol=0.2

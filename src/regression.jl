@@ -4,19 +4,19 @@ function conjugate(r::Regression, Y, Γ0::AbstractArray)
 end
 
 function conjugate(r::Regression, Y, prior::Gaussian)
-    @unpack k, fjac!, ϕ0func!, ϕ, ϕ0, y, y2 = r
+    @unpack k, fjac!, ϕ0func!, ϕ, ϕ0, y, y2, θ = r
     @unpack g, pest = k
 
     t = Y.t[1]
     y .= Y.u[1]
 
-    fjac!(ϕ, y, pest, t)
+    calc_J!(ϕ, r, θ, t)
     μ = prior.F
     Γ = prior.Γ
 
     for i in 1:length(Y)-1
-        fjac!(ϕ, y, pest, t)
-        Gϕ = pinv(g(y, pest, t)*g(y, pest, t)')*ϕ
+        calc_J!(ϕ, r, θ, t)
+        Gϕ = pinv(outer_(g(y, pest, t)))*ϕ
         zi = ϕ'*Gϕ
         t2 = Y.t[i + 1]
         y2 .= Y.u[i + 1]
