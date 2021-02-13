@@ -47,5 +47,5 @@ ll0 = randn()
 samples1 = [MitosisStochasticDiffEq.forwardguiding(sdekernel, message, (x0, ll0))[1][1,end] for k in 1:K]
 samples2 = MitosisStochasticDiffEq.forwardguiding(sdekernel, message, (x0, ll0), numtraj=K)[1][1,end,:]
 
-@test isapprox(mean(samples1), mean(samples2), rtol=5e-3)
+@test isapprox(mean(samples1), mean(samples2), rtol=1e-2)
 @test isapprox(cov(samples1), cov(samples2), rtol=1e-2)
