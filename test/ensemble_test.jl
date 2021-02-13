@@ -28,8 +28,8 @@ sdekernel = MitosisStochasticDiffEq.SDEKernel(f,g,tstart,tend,pest,plin,dt=dt)
 samples1 = MitosisStochasticDiffEq.sample(sdekernel, u0, K, save_noise=false).u
 samples2 = [MitosisStochasticDiffEq.sample(sdekernel, u0, save_noise=false)[2] for _ in 1:K]
 
-@test isapprox(mean(samples1), mean(samples2), rtol=5e-3)
-@test isapprox(cov(samples1), cov(samples2), rtol=5e-3)
+@test isapprox(mean(samples1), mean(samples2), rtol=1e-2)
+@test isapprox(cov(samples1), cov(samples2), rtol=1e-2)
 
 
 
