@@ -4,15 +4,12 @@ using Mitosis
 using RecursiveArrayTools
 using StochasticDiffEq
 using OrdinaryDiffEq
-using DiffEqCallbacks
 using DiffEqNoiseProcess
 using LinearAlgebra
 using Random
-#using Parameters
 using UnPack
 using Statistics
 using StaticArrays
-
 using ForwardDiff
 
 outer_(x) = x*x'
