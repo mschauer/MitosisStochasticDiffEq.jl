@@ -26,7 +26,7 @@ struct GuidingDiffusionCache{gType}
 end
 
 
-mutable struct Regression{kernelType,pJType,ifuncType,phiType,uType}
+mutable struct Regression{kernelType,pJType,ifuncType,phiType,uType,pfType,θType}
   k::kernelType
   fjac!::pJType
   ϕ0func!::ifuncType
@@ -34,16 +34,32 @@ mutable struct Regression{kernelType,pJType,ifuncType,phiType,uType}
   ϕ0::uType
   y::uType
   y2::uType
+  pf::pfType
+  θ::θType
 end
 
-function Regression(sdekernel,yprototype,ϕprototype;
-      paramjac=nothing,intercept=nothing)
+function Regression(sdekernel::SDEKernel, yprototype;
+      paramjac_prototype=nothing,
+      paramjac=nothing,intercept=nothing,θ=sdekernel.pest)
+
 
   y = similar(yprototype)
   y2 = similar(y)
   ϕ0 = similar(y)
 
-  ϕ = similar(ϕprototype)
+  if paramjac_prototype !== nothing
+    ϕ = similar(paramjac_prototype)
+  else
+    ϕ = zeros((length(yprototype),length(θ)))
+  end
 
-  Regression{typeof(sdekernel),typeof(paramjac),typeof(intercept),typeof(ϕ),typeof(y)}(sdekernel,paramjac,intercept,ϕ,ϕ0,y,y2)
+
+  if paramjac === nothing
+    pf = ParamJacobianWrapper(sdekernel.f,sdekernel.tstart,y)
+  else
+    pf = nothing
+  end
+
+  Regression{typeof(sdekernel),typeof(paramjac),typeof(intercept),typeof(ϕ),
+    typeof(y),typeof(pf),typeof(θ)}(sdekernel,paramjac,intercept,ϕ,ϕ0,y,y2,pf,θ)
 end
