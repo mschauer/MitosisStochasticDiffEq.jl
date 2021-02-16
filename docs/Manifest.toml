@@ -366,7 +366,7 @@ uuid = "e74b8d68-74d0-42b9-99ba-91d43d3ab0e8"
 version = "0.1.0"
 
 [[MitosisStochasticDiffEq]]
-deps = ["DiffEqCallbacks", "DiffEqNoiseProcess", "LinearAlgebra", "MeasureTheory", "Mitosis", "OrdinaryDiffEq", "Random", "RecursiveArrayTools", "StaticArrays", "Statistics", "StochasticDiffEq", "UnPack"]
+deps = ["DiffEqNoiseProcess", "ForwardDiff", "LinearAlgebra", "MeasureTheory", "Mitosis", "OrdinaryDiffEq", "Random", "RecursiveArrayTools", "StaticArrays", "Statistics", "StochasticDiffEq", "UnPack"]
 path = ".."
 uuid = "6d72f4e6-0ed6-45a8-9268-ca10853c051d"
 version = "0.1.0"
