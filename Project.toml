@@ -20,7 +20,7 @@ UnPack = "3a884ed6-31ef-47d7-9d2a-63182c4928ed"
 
 [compat]
 ForwardDiff = "0.10"
-MeasureTheory = "0.2"
+MeasureTheory = "0.2, 0.3"
 Mitosis = "0.1"
 julia = "1"
 
