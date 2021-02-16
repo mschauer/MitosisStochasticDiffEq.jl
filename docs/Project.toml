@@ -1,3 +1,4 @@
 [deps]
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+Mitosis = "e74b8d68-74d0-42b9-99ba-91d43d3ab0e8"
 MitosisStochasticDiffEq = "6d72f4e6-0ed6-45a8-9268-ca10853c051d"
