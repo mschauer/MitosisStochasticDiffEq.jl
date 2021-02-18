@@ -20,6 +20,8 @@ function conjugate_posterior(Y, Ξ)
     mu = zero(ϕ)
     G = zero(mu*mu')
 
+    #mulist = [mu]
+
     for i in 1:length(Y)-1
         ϕ = paramgrad(t, y)'
         Gϕ = pinv(Y.prob.g(y, Y.prob.p, t)*Y.prob.g(y, Y.prob.p, t)')*ϕ # a is sigma*sigma'. Todo: smoothing like this is very slow
@@ -35,8 +37,9 @@ function conjugate_posterior(Y, Ξ)
         # if i==2
         #   error()
         # end
+        # push!(mulist,mu)
     end
-    Mitosis.Gaussian{(:F,:Γ)}(mu, G + Ξ)
+    Mitosis.Gaussian{(:F,:Γ)}(mu, G + Ξ)#, mulist
 end
 
 @testset "regression tests" begin
@@ -89,6 +92,7 @@ end
   Random.seed!(100)
   sol, solend = MitosisStochasticDiffEq.sample(sdekernel, u0, save_noise=true)
   @show solend
+  @show length(sol)
 
   R = MitosisStochasticDiffEq.Regression!(sdekernel,yprototype,
      paramjac_prototype=ϕprototype,paramjac=f_jac,intercept=ϕ0)
@@ -98,15 +102,18 @@ end
   G2 = MitosisStochasticDiffEq.conjugate(R2, sol, 0.1*I(2))
   G3 = conjugate_posterior(sol, 0.1*I(2))
 
-  @testset "iip and oop tests" begin
-    @test G ≈ G2 rtol=1e-10
+  @testset "iip tests" begin
+    @test G ≈ G3 rtol=1e-10
     @test G.F ≈ G3.F rtol=1e-10
     @test G.Γ ≈ G3.Γ rtol=1e-10
+  end
+  @testset "oop tests" begin
     @test G2 ≈ G3 rtol=1e-10
     @test G2.F ≈ G3.F rtol=1e-10
     @test G2.Γ ≈ G3.Γ rtol=1e-10
   end
-  @show G.F
+  @info G3.F
+  @info G3.Γ
 
   # test samples
   mu = G.F

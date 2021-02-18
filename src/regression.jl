@@ -1,6 +1,6 @@
 function conjugate(r::Union{Regression,Regression!}, Y, Γ0::AbstractArray)
   Γ0_ = Matrix(Γ0)
-  conjugate(r, Y, Mitosis.Gaussian{(:F,:Γ)}(similar(Γ0_, size(Γ0_, 1)), Γ0_))
+  conjugate(r, Y, Mitosis.Gaussian{(:F,:Γ)}(zeros(eltype(Γ0_), size(Γ0_, 1)), Γ0_))
 end
 
 function conjugate(r::Regression, Y, prior::Gaussian)
@@ -11,8 +11,8 @@ function conjugate(r::Regression, Y, prior::Gaussian)
   y = Y.u[1]
 
   ϕ = calc_J(y, r, θ, t)
-  μ = prior.F
-  Γ = prior.Γ
+  μ = copy(prior.F)
+  Γ = copy(prior.Γ)
 
   for i in 1:length(Y)-1
     ϕ = calc_J(y, r, θ, t)
@@ -44,7 +44,7 @@ function conjugate(r::Regression!, Y, prior::Gaussian)
   @unpack g, p = k
 
   t = Y.t[1]
-  y .= Y.u[1]
+  copyto!(y, Y.u[1])
 
   calc_J!(ϕ, r, θ, t)
   μ = prior.F
@@ -55,7 +55,7 @@ function conjugate(r::Regression!, Y, prior::Gaussian)
     Gϕ = pinv(outer_(g(y, p, t)))*ϕ
     zi = ϕ'*Gϕ
     t2 = Y.t[i + 1]
-    y2 .= Y.u[i + 1]
+    copyto!(y2, Y.u[i + 1])
 
     ds = t2 - t
 
@@ -68,7 +68,7 @@ function conjugate(r::Regression!, Y, prior::Gaussian)
     end
 
     t = t2
-    y .= y2
+    copyto!(y, y2)
     Γ .= Γ + zi*ds
 
   end
