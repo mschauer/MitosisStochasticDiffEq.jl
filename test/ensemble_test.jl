@@ -3,7 +3,7 @@ using Mitosis
 using Test, Random
 using Statistics
 
-K = 100_000
+K = 200_000
 Random.seed!(1234)
 
 # define SDE function
@@ -41,7 +41,7 @@ NT = NamedTuple{mynames}(myvalues)
 sdetildekernel = MitosisStochasticDiffEq.SDEKernel(f,g,trange,plin)
 message, backward = MitosisStochasticDiffEq.backwardfilter(sdetildekernel, NT)
 
-sdetildekernel2 = MitosisStochasticDiffEq.SDEKernel(Mitosis.AffineMap(B, β), Mitosis.ConstantMap(σ̃), trange, plin)
+sdetildekernel2 = MitosisStochasticDiffEq.SDEKernel(Mitosis.AffineMap(plin[1], plin[2]), Mitosis.ConstantMap(plin[3]), trange, plin)
 message2, backward2 = MitosisStochasticDiffEq.backwardfilter(sdetildekernel2, NT)
 
 @test isapprox(backward, backward2, rtol=1e-15)
