@@ -39,123 +39,128 @@ function conjugate_posterior(Y, Ξ)
     Mitosis.Gaussian{(:F,:Γ)}(mu, G + Ξ)
 end
 
-K = 1000
+@testset "regression tests" begin
 
-# define SDE function
-foop(u,p,t) = p[1]*u .+ p[2]
-goop(u,p,t) = p[3]
+  K = 1000
 
-# paramjac
-function f_jac(J,u,p,t)
-  J[1,1] = u[1]
-  J[1,2] = true
-  nothing
-end
+  # define SDE function
+  foop(u,p,t) = p[1]*u .+ p[2]
+  goop(u,p,t) = p[3]
 
-function f_jacoop(u,p,t)
-  [u[1]  true]
-end
+  # paramjac
+  function f_jac(J,u,p,t)
+    J[1,1] = u[1]
+    J[1,2] = true
+    nothing
+  end
 
-# intercept
-function ϕ0(du,u,p,t)
-  du .= false
-end
+  function f_jacoop(u,p,t)
+    [u[1]  true]
+  end
 
-function ϕ0oop(u,p,t)
-  [zero(eltype(u))]
-end
+  # intercept
+  function ϕ0(du,u,p,t)
+    du .= false
+  end
 
-ϕprototype = zeros((1,2))
-yprototype = zeros(1)
+  function ϕ0oop(u,p,t)
+    [zero(eltype(u))]
+  end
 
-# time span
-tstart = 0.0
-tend = 100.0
-dt = 0.01
-trange = tstart:dt:tend
+  ϕprototype = zeros((1,2))
+  yprototype = zeros(1)
 
-# initial condition
-u0 = 1.1
-arrayu0 = [u0]
+  # time span
+  tstart = 0.0
+  tend = 100.0
+  dt = 0.01
+  trange = tstart:dt:tend
 
-# set true model parameters
-par = [-0.3, 0.2, 0.5]
+  # initial condition
+  u0 = 1.1
 
-# define SDE kernel
-sdekernel = MitosisStochasticDiffEq.SDEKernel(foop,goop,trange,par)
+  # set true model parameters
+  par = [-0.3, 0.2, 0.5]
 
-# sample using MitosisStochasticDiffEq and EM default
-Random.seed!(100)
-sol, solend = MitosisStochasticDiffEq.sample(sdekernel, u0, save_noise=true)
-@show solend
+  # define SDE kernel
+  sdekernel = MitosisStochasticDiffEq.SDEKernel(foop,goop,trange,par)
 
-R = MitosisStochasticDiffEq.Regression!(sdekernel,yprototype,
-   paramjac_prototype=ϕprototype,paramjac=f_jac,intercept=ϕ0)
-R2 = MitosisStochasticDiffEq.Regression(sdekernel,paramjac=f_jacoop,intercept=ϕ0oop)
+  # sample using MitosisStochasticDiffEq and EM default
+  Random.seed!(100)
+  sol, solend = MitosisStochasticDiffEq.sample(sdekernel, u0, save_noise=true)
+  @show solend
 
-G = MitosisStochasticDiffEq.conjugate(R, sol, 0.1*I(2))
-G2 = MitosisStochasticDiffEq.conjugate(R2, sol, 0.1*I(2))
-G3 = conjugate_posterior(sol, 0.1*I(2))
-@test G ≈ G2 rtol=1e-10
-@test G.F ≈ G3.F rtol=1e-10
-@test G.Γ ≈ G3.Γ rtol=1e-10
-@test G2 ≈ G3 rtol=1e-10
-@test G2.F ≈ G3.F rtol=1e-10
-@test G2.Γ ≈ G3.Γ rtol=1e-10
+  R = MitosisStochasticDiffEq.Regression!(sdekernel,yprototype,
+     paramjac_prototype=ϕprototype,paramjac=f_jac,intercept=ϕ0)
+  R2 = MitosisStochasticDiffEq.Regression(sdekernel,paramjac=f_jacoop,intercept=ϕ0oop)
 
-@show G.F
+  G = MitosisStochasticDiffEq.conjugate(R, sol, 0.1*I(2))
+  G2 = MitosisStochasticDiffEq.conjugate(R2, sol, 0.1*I(2))
+  G3 = conjugate_posterior(sol, 0.1*I(2))
 
-# test samples
-mu = G.F
-Gamma = G.Γ
-WL = (cholesky(Hermitian(Gamma)).U)'
+  @testset "iip and oop tests" begin
+    @test G ≈ G2 rtol=1e-10
+    @test G.F ≈ G3.F rtol=1e-10
+    @test G.Γ ≈ G3.Γ rtol=1e-10
+    @test G2 ≈ G3 rtol=1e-10
+    @test G2.F ≈ G3.F rtol=1e-10
+    @test G2.Γ ≈ G3.Γ rtol=1e-10
+  end
+  @show G.F
 
-Random.seed!(1)
-Π = []
-Π2 = []
-for i=1:K
-  th° = WL'\(randn(size(mu))+WL\mu)
-  push!(Π,th°)
-  th° = WL'\(randn(size(mu))+WL\mu)
-  push!(Π2,th°)
-end
+  # test samples
+  mu = G.F
+  Gamma = G.Γ
+  WL = (cholesky(Hermitian(Gamma)).U)'
 
-mu = G2.F
-Gamma = G2.Γ
-WL = (cholesky(Hermitian(Gamma)).U)'
+  Random.seed!(1)
+  Π = []
+  Π2 = []
+  for i=1:K
+    th° = WL'\(randn(size(mu))+WL\mu)
+    push!(Π,th°)
+    th° = WL'\(randn(size(mu))+WL\mu)
+    push!(Π2,th°)
+  end
 
-Random.seed!(1)
-for i=1:K
-  th° = WL'\(randn(size(mu))+WL\mu)
-  push!(Π2,th°)
-end
+  mu = G2.F
+  Gamma = G2.Γ
+  WL = (cholesky(Hermitian(Gamma)).U)'
 
-
-@test par[1:2] ≈ mean(Π) rtol=0.2
-@test par[1:2] ≈ mean(Π2) rtol=0.2
-@test mean(Π) ≈ mean(Π2) atol=0.1
-
+  Random.seed!(1)
+  for i=1:K
+    th° = WL'\(randn(size(mu))+WL\mu)
+    push!(Π2,th°)
+  end
+  @testset "regression samples tests" begin
+    @test par[1:2] ≈ mean(Π) rtol=0.2
+    @test par[1:2] ≈ mean(Π2) rtol=0.2
+    @test mean(Π) ≈ mean(Π2) atol=0.1
+  end
 # using Plots
 # pl = scatter(first.(Π), last.(Π), markersize=1, c=:blue, label="posterior samples")
 # scatter!(first.(Π2), last.(Π2), markersize=1, c=:green, label="posterior samples")
 # scatter!([par[1]], [par[2]], color="red", label="truth")
 # savefig(pl, "regression.png")
 
-# test with ForwardDiff
-using ForwardDiff
-pf = MitosisStochasticDiffEq.ParamJacobianWrapper(sdekernel.f,first(sdekernel.trange),[u0])
-f_jac(ϕprototype,[u0],par,first(sdekernel.trange))
-@test f_jacoop(u0,par,first(sdekernel.trange)) == ϕprototype
-@test ForwardDiff.jacobian(pf, par[1:2]) == ϕprototype
+  # test with ForwardDiff
+  @testset "AD tests" begin
+    using ForwardDiff
+    pf = MitosisStochasticDiffEq.ParamJacobianWrapper(sdekernel.f,first(sdekernel.trange),[u0])
+    f_jac(ϕprototype,[u0],par,first(sdekernel.trange))
+    @test f_jacoop(u0,par,first(sdekernel.trange)) == ϕprototype
+    @test ForwardDiff.jacobian(pf, par[1:2]) == ϕprototype
 
-# check θ function
-RAD = MitosisStochasticDiffEq.Regression!(sdekernel,yprototype,
-  paramjac_prototype=ϕprototype,intercept=ϕ0,θ=par[1:2])
-GAD = MitosisStochasticDiffEq.conjugate(RAD, sol, 0.1*I(2))
-@test G ≈ GAD rtol=1e-10
+    # check θ function
+    RAD = MitosisStochasticDiffEq.Regression!(sdekernel,yprototype,
+      paramjac_prototype=ϕprototype,intercept=ϕ0,θ=par[1:2])
+    GAD = MitosisStochasticDiffEq.conjugate(RAD, sol, 0.1*I(2))
+    @test G ≈ GAD rtol=1e-10
 
-#check with intercept = nothing
-RAD = MitosisStochasticDiffEq.Regression!(sdekernel,yprototype,
-  paramjac_prototype=ϕprototype,θ=par[1:2])
-GAD = MitosisStochasticDiffEq.conjugate(RAD, sol, 0.1*I(2))
-@test G ≈ GAD rtol=1e-10
+    #check with intercept = nothing
+    RAD = MitosisStochasticDiffEq.Regression!(sdekernel,yprototype,
+      paramjac_prototype=ϕprototype,θ=par[1:2])
+    GAD = MitosisStochasticDiffEq.conjugate(RAD, sol, 0.1*I(2))
+    @test G ≈ GAD rtol=1e-10
+  end
+end

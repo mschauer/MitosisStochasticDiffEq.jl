@@ -26,12 +26,13 @@ par = [-0.2, 0.1, 0.9]
 plin = copy(par)
 sdekernel = MitosisStochasticDiffEq.SDEKernel(f,g,trange,par)
 
-samples1 = MitosisStochasticDiffEq.sample(sdekernel, u0, K, save_noise=false).u
-samples2 = [MitosisStochasticDiffEq.sample(sdekernel, u0, save_noise=false)[2] for _ in 1:K]
+@testset "ensemble sampling tests" begin
+  samples1 = MitosisStochasticDiffEq.sample(sdekernel, u0, K, save_noise=false).u
+  samples2 = [MitosisStochasticDiffEq.sample(sdekernel, u0, save_noise=false)[2] for _ in 1:K]
 
-@test isapprox(mean(samples1), mean(samples2), rtol=1e-2)
-@test isapprox(cov(samples1), cov(samples2), rtol=1e-2)
-
+  @test isapprox(mean(samples1), mean(samples2), rtol=1e-2)
+  @test isapprox(cov(samples1), cov(samples2), rtol=1e-2)
+end
 
 # initial values for ODE
 mynames = (:logscale, :μ, :Σ);
@@ -44,8 +45,10 @@ message, backward = MitosisStochasticDiffEq.backwardfilter(sdetildekernel, NT)
 sdetildekernel2 = MitosisStochasticDiffEq.SDEKernel(Mitosis.AffineMap(plin[1], plin[2]), Mitosis.ConstantMap(plin[3]), trange, plin)
 message2, backward2 = MitosisStochasticDiffEq.backwardfilter(sdetildekernel2, NT)
 
-@test isapprox(backward, backward2, rtol=1e-15)
-@test isapprox(Array(message.sol), Array(message2.sol), rtol=1e-15)
+@testset "ensemble backward tests" begin
+  @test isapprox(backward, backward2, rtol=1e-15)
+  @test isapprox(Array(message.sol), Array(message2.sol), rtol=1e-15)
+end
 
 x0 = 1.34
 ll0 = randn()
@@ -53,5 +56,7 @@ ll0 = randn()
 samples1 = [MitosisStochasticDiffEq.forwardguiding(sdekernel, message, (x0, ll0))[1][1,end] for k in 1:K]
 samples2 = MitosisStochasticDiffEq.forwardguiding(sdekernel, message, (x0, ll0), numtraj=K)[1][1,end,:]
 
-@test isapprox(mean(samples1), mean(samples2), rtol=1e-2)
-@test isapprox(cov(samples1), cov(samples2), rtol=1e-2)
+@testset "ensemble guiding tests" begin
+  @test isapprox(mean(samples1), mean(samples2), rtol=1e-2)
+  @test isapprox(cov(samples1), cov(samples2), rtol=1e-2)
+end

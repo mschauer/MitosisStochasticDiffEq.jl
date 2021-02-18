@@ -3,7 +3,7 @@ using Test, Random
 using StaticArrays
 using Statistics
 
-
+@testset "static array tests" begin
 seed = 1234
 Random.seed!(seed)
 
@@ -76,3 +76,4 @@ samples2 = MitosisStochasticDiffEq.forwardguiding(sdekernel2, message2, (x0, ll0
 
 @test isapprox(samples1[2][1], samples2[2][1], rtol=1e-10)
 @test_broken typeof(samples2[1][end]) <: SArray
+end
