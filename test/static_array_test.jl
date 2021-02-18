@@ -24,6 +24,7 @@ end
 tstart = 0.0
 tend = 1.0
 dt = 0.01
+trange = tstart:dt:tend
 
 # initial condition
 u0 = [1.1]
@@ -34,10 +35,9 @@ par = [-0.2, 0.1, 0.9]
 
 # set of linear parameters Eq.~(2.2)
 plin = copy(par)
-pest = copy(par)
 
-sdekernel1 = MitosisStochasticDiffEq.SDEKernel(f,g,tstart,tend,pest,plin,dt=dt)
-sdekernel2 = MitosisStochasticDiffEq.SDEKernel(fstat,gstat,tstart,tend,pest,plin,dt=dt)
+sdekernel1 = MitosisStochasticDiffEq.SDEKernel(f,g,trange,par)
+sdekernel2 = MitosisStochasticDiffEq.SDEKernel(fstat,gstat,trange,par)
 
 Random.seed!(seed)
 samples1 = MitosisStochasticDiffEq.sample(sdekernel1, u0, save_noise=false)
@@ -57,12 +57,13 @@ NT1 = NamedTuple{mynames}(myvalues1)
 myvalues2 = [(@SVector [0.0]), (@SVector [1.5]), (@SVector[0.1]) ]
 NT2 = NamedTuple{mynames}(myvalues2)
 
-message1, backward1 = MitosisStochasticDiffEq.backwardfilter(sdekernel1, NT1)
-message2, backward2 = MitosisStochasticDiffEq.backwardfilter(sdekernel2, NT2)
+sdetildekernel1 = MitosisStochasticDiffEq.SDEKernel(f,g,trange,plin)
+sdetildekernel2 = MitosisStochasticDiffEq.SDEKernel(fstat,gstat,trange,plin)
+message1, backward1 = MitosisStochasticDiffEq.backwardfilter(sdetildekernel1, NT1)
+message2, backward2 = MitosisStochasticDiffEq.backwardfilter(sdetildekernel2, NT2)
 
 @test isapprox(backward1, backward2, rtol=1e-10)
 @test typeof(backward2.x[1]) <: SArray
-
 
 
 x0 = [1.34]

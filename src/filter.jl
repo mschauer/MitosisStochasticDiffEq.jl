@@ -68,15 +68,13 @@ function backwardfilter(k::SDEKernel, p::WGaussian{(:μ, :Σ, :c)}; alg=Euler(),
 end
 
 function backwardfilter(k::SDEKernel, (c, ν, P)::NamedTuple{(:logscale, :μ, :Σ)}; alg=Euler(), inplace=false)
-    @unpack tstart, tend, plin, dt = k
-
-    trange = (tend, tstart)
+    @unpack trange, p = k
 
     # Initialize OD
     u0 = mypack(ν, P, c)
 
-    prob = ODEProblem{inplace}(filterODE, u0, trange, plin)
-    sol = solve(prob, alg, dt=dt)
-    message = sol
+    prob = ODEProblem{inplace}(filterODE, u0, reverse(get_tspan(trange)), p)
+    sol = solve(prob, alg, dt=dt = get_dt(trange))
+    message = Message(sol, k)
     return message, sol[end]
 end

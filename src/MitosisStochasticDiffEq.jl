@@ -12,15 +12,12 @@ using Statistics
 using StaticArrays
 using ForwardDiff
 
-outer_(x) = x*x'
-outer_(x::Number) = Diagonal([x*x'])
-outer_(x::AbstractVector) = Diagonal(x.*x)
-
 include("types.jl")
 include("sample.jl")
 include("filter.jl")
 include("guiding.jl")
 include("regression.jl")
+include("utils.jl")
 include("derivative_utils.jl")
 
 end

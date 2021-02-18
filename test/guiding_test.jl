@@ -1,4 +1,5 @@
 using MitosisStochasticDiffEq
+using Mitosis
 using DiffEqNoiseProcess
 using Test, Random
 using LinearAlgebra
@@ -16,27 +17,30 @@ f(u,p,t) = @. p[1]*u + p[2] - 1.5*sin(u*2pi)
 g(u,p,t) = p[3] .- 0.2*(1 .-sin.(u))
 
 # set of linear parameters Eq.~(2.2)
-plin = [-0.1,0.2,1.3]
+B, β, σ̃ = -0.1, 0.2, 1.3
+plin = [B, β, σ̃]
 pest = [-0.4, 0.5, 1.4] # initial guess of parameter to be estimated
 
 # time span
 tstart = 0.0
 tend = 1.0
 dt = 0.001
+trange = tstart:dt:tend
 
 # intial condition
 u0 = 1.1
 
-
-kernel = MitosisStochasticDiffEq.SDEKernel(f,g,tstart,tend,pest,plin,dt=dt)
-
+# forward kernel
+kernel = MitosisStochasticDiffEq.SDEKernel(f,g,trange,pest)
 
 # initial values for ODE
 mynames = (:logscale, :μ, :Σ);
 myvalues = [0.0, 0.0, 10.0];
 NT = NamedTuple{mynames}(myvalues)
 
-message, backward = MitosisStochasticDiffEq.backwardfilter(kernel, NT)
+# backward kernel
+kerneltilde = MitosisStochasticDiffEq.SDEKernel(Mitosis.AffineMap(B, β), Mitosis.ConstantMap(σ̃), trange, plin)
+message, backward = MitosisStochasticDiffEq.backwardfilter(kerneltilde, NT)
 
 x0 = randn()
 ll0 = randn()
@@ -96,13 +100,11 @@ end
 
 
 dWs = (solfw.W[1,2:end]-solfw.W[1,1:end-1])
-ps = reverse(Array(message), dims=2)
-solfw2, ll2 = forwardguiding(plin, pest, reverse(message.t), (x0, ll0),ps,dWs)
+ps = message.soldis
+solfw2, ll2 = forwardguiding(plin, pest, message.ts, (x0, ll0),ps,dWs)
 
 @test isapprox(solfw[1,:], solfw2, rtol=1e-12)
 @test isapprox(ll, ll2, rtol=1e-12)
-
-
 
 # multivariate tests with scalar random process
 dim = 7
@@ -122,17 +124,17 @@ W = sqrt(dt)*randn(length(t))
 W1 = cumsum([zero(dt); W[1:end-1]])
 NG = NoiseGrid(t,W1)
 
-kernel = MitosisStochasticDiffEq.SDEKernel(f,g,tstart,tend,pest,plin,dt=dt)
-message, solend = MitosisStochasticDiffEq.backwardfilter(kernel, NT)
+# backward kernel
+kerneltilde = MitosisStochasticDiffEq.SDEKernel(Mitosis.AffineMap(plin[1], plin[2]), Mitosis.ConstantMap(plin[3]), trange, plin)
+message, backward = MitosisStochasticDiffEq.backwardfilter(kerneltilde, NT)
 
 x0 = randn(dim)
 ll0 = randn()
-
 solfw, ll = MitosisStochasticDiffEq.forwardguiding(kernel, message, (x0, ll0), NG)
 
 
-ps = reverse(Array(message), dims=2)
-solfw2, ll2 = forwardguiding(plin, pest, reverse(message.t), (x0, ll0), ps, W)
+ps = message.soldis
+solfw2, ll2 = forwardguiding(plin, pest, message.ts, (x0, ll0), ps, W)
 
 @test isapprox(Array(solfw)[1:dim,:], hcat(solfw2 ...), rtol=1e-12)
 @test isapprox(ll, ll2, rtol=1e-12)
@@ -151,8 +153,9 @@ NT = NamedTuple{mynames}(myvalues)
 m = 2
 plin = [randn(dim,dim), randn(dim), randn(dim,m)] # B, β, σtil
 
-kernel = MitosisStochasticDiffEq.SDEKernel(f,g,tstart,tend,pest,plin,dt=dt)
-message, solend = MitosisStochasticDiffEq.backwardfilter(kernel, NT)
+# backward kernel
+kerneltilde = MitosisStochasticDiffEq.SDEKernel(Mitosis.AffineMap(plin[1], plin[2]), Mitosis.ConstantMap(plin[3]), trange, plin)
+message, backward = MitosisStochasticDiffEq.backwardfilter(kerneltilde, NT)
 
 x0 = randn(dim)
 ll0 = randn()
@@ -162,8 +165,8 @@ solfw, ll = MitosisStochasticDiffEq.forwardguiding(kernel, message, (x0, ll0); s
 Ws = Array(solfw.W)
 dWs = Ws[1:dim,2:end]-Ws[1:dim,1:end-1]
 
-ps = reverse(Array(message), dims=2)
-solfw2, ll2 = forwardguiding(plin, pest, reverse(message.t), (x0, ll0),ps,dWs,:diag)
+ps = message.soldis
+solfw2, ll2 = forwardguiding(plin, pest, message.ts, (x0, ll0),ps,dWs,:diag)
 
 @test isapprox(Array(solfw)[1:dim,:], hcat(solfw2 ...), rtol=1e-12)
 @test isapprox(ll, ll2, rtol=1e-12)

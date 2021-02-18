@@ -20,6 +20,7 @@ g(u,p,t) = diag(p[3])
 tstart = 0.0
 tend = 5.0
 dt = 0.001
+trange = tstart:dt:tend
 
 # Start point
 u0 = SVector(0.0, 1.0, 1.0, 0.0)
@@ -27,22 +28,21 @@ u0 = SVector(0.0, 1.0, 1.0, 0.0)
 # End point
 uT = u0 # loop
 
-sdekernel = MitosisStochasticDiffEq.SDEKernel(f,g,tstart,tend,plin,plin,dt=dt)
-
+sdekernel = MitosisStochasticDiffEq.SDEKernel(f,g,trange,plin)
+kerneltilde = MitosisStochasticDiffEq.SDEKernel(Mitosis.AffineMap(B, β), Mitosis.ConstantMap(σ), trange, plin)
 
 WG = WGaussian{(:μ,:Σ,:c)}(uT, SMatrix{4,4}(Diagonal([0.0001, 0.0001, 0.0001, 0.0001].^(-2.0))), 0.0) # move back from endpoint plus a bit of uncertainty
 WG = (;logscale = 0.0, μ=uT, Σ=SMatrix{4,4}(Diagonal([0.0000001, 0.0000001, 0.0000001, 0.0000001].^(2.0))))
 
-message, solend = MitosisStochasticDiffEq.backwardfilter(sdekernel, WG)
+message, solend = MitosisStochasticDiffEq.backwardfilter(kerneltilde, WG)
 
-solfw, ll = MitosisStochasticDiffEq.forwardguiding(sdekernel, message, (u0, 0.0), Z=nothing; inplace=false, save_noise=true)
+solfw, ll = MitosisStochasticDiffEq.forwardguiding(sdekernel, message, (u0, 0.0),
+   Z=nothing; inplace=false, save_noise=true)
 
-u = solfw.u     
+u = solfw.u
 using Makie
 pl = lines(getindex.(u, 1), getindex.(u, 2))
 #lines!(pl, getindex.(u, 3), getindex.(u, 4), color=:blue)
 #scatter!(pl, [u[1][1], u[1][3], u[end][1], u[end][3]], [u[1][2], u[1][4], u[end][2], u[end][4]]  )
 #save("curve.png", pl)
 pl
-
-
