@@ -1,24 +1,26 @@
-struct SDEKernel{fType,gType,tType,dtType,paramType1,paramType2}
+struct SDEKernel{fType,gType,tType,pType}
   f::fType
   g::gType
-  tstart::tType
-  tend::tType
-  dt::dtType
-  pest::paramType1
-  plin::paramType2
+  trange::tType
+  p::pType
 end
 
-function SDEKernel(f,g,tstart,tend,pest,plin;dt=nothing)
-  SDEKernel{typeof(f),typeof(g),typeof(tstart),
-            typeof(dt),typeof(pest),typeof(plin)}(f,g,tstart,tend,dt,pest,plin)
+struct Message{kernelType,solType,sol2Type,tType}
+  ktilde::kernelType
+  sol::solType
+  soldis::sol2Type
+  ts::tType
 end
 
+function Message(sol, sdekernel::SDEKernel)
+  soldis = reverse(Array(sol), dims=2)
+  ts = reverse(sol.t)
+  Message{typeof(sdekernel),typeof(sol),typeof(soldis),typeof(ts)}(sdekernel,sol,soldis,ts)
+end
 
-struct GuidingDriftCache{kernelType,sdType,sType,tsType}
+struct GuidingDriftCache{kernelType,messageType}
   k::kernelType
-  soldis::sdType
-  sol::sType
-  ts::tsType
+  message::messageType
 end
 
 struct GuidingDiffusionCache{gType}
@@ -26,7 +28,29 @@ struct GuidingDiffusionCache{gType}
 end
 
 
-mutable struct Regression{kernelType,pJType,ifuncType,phiType,uType,pfType,θType}
+struct Regression{kernelType,pJType,ifuncType,pfType,θType}
+  k::kernelType
+  fjac::pJType
+  ϕ0func::ifuncType
+  pf::pfType
+  θ::θType
+end
+
+function Regression(sdekernel::SDEKernel; paramjac=nothing,intercept=nothing,
+    θ=sdekernel.p, yprototype=nothing)
+
+  if paramjac === nothing
+    pf = ParamJacobianWrapper(sdekernel.f,first(sdekernel.trange),yprototype)
+  else
+    pf = nothing
+  end
+
+  Regression{typeof(sdekernel),typeof(paramjac),typeof(intercept),typeof(pf),typeof(θ)}(sdekernel,
+    paramjac,intercept,pf,θ)
+end
+
+
+mutable struct Regression!{kernelType,pJType,ifuncType,phiType,uType,pfType,θType}
   k::kernelType
   fjac!::pJType
   ϕ0func!::ifuncType
@@ -38,10 +62,9 @@ mutable struct Regression{kernelType,pJType,ifuncType,phiType,uType,pfType,θTyp
   θ::θType
 end
 
-function Regression(sdekernel::SDEKernel, yprototype;
-      paramjac_prototype=nothing,
-      paramjac=nothing,intercept=nothing,θ=sdekernel.pest)
-
+function Regression!(sdekernel::SDEKernel, yprototype;
+      paramjac_prototype=nothing, paramjac=nothing, intercept=nothing,
+      θ=sdekernel.p)
 
   y = similar(yprototype)
   y2 = similar(y)
@@ -53,13 +76,12 @@ function Regression(sdekernel::SDEKernel, yprototype;
     ϕ = zeros((length(yprototype),length(θ)))
   end
 
-
   if paramjac === nothing
-    pf = ParamJacobianWrapper(sdekernel.f,sdekernel.tstart,y)
+    pf = ParamJacobianWrapper(sdekernel.f,first(sdekernel.trange),y)
   else
     pf = nothing
   end
 
-  Regression{typeof(sdekernel),typeof(paramjac),typeof(intercept),typeof(ϕ),
+  Regression!{typeof(sdekernel),typeof(paramjac),typeof(intercept),typeof(ϕ),
     typeof(y),typeof(pf),typeof(θ)}(sdekernel,paramjac,intercept,ϕ,ϕ0,y,y2,pf,θ)
 end

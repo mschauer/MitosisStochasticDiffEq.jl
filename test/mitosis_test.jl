@@ -19,17 +19,18 @@ g(u,p,t) = p[3] .+ 0u # needs to preserve type of u for forwardguided
 tstart = 0.0
 tend = 1.0
 dt = 0.01
+trange = tstart:dt:tend
 
 # initial condition
 u0 = 1.1
 
 # set of linear parameters Eq.~(2.2)
 plin = copy(par)
-pest = copy(par)
-sdekernel = MitosisStochasticDiffEq.SDEKernel(f,g,tstart,tend,pest,plin,dt=dt)
+sdekernel = MitosisStochasticDiffEq.SDEKernel(f,g,trange,plin)
 
 plin2 = par2 = [-0.1, -0.05, 1.0]
-sdekernel2 = MitosisStochasticDiffEq.SDEKernel(f,g,tstart,tend,pest,plin2,dt=dt)
+sdekernel2 = MitosisStochasticDiffEq.SDEKernel(f,g,trange,plin)
+sdekerneltilde2 = MitosisStochasticDiffEq.SDEKernel(f,g,trange,plin2)
 
 
 
@@ -101,17 +102,15 @@ samples = [MitosisStochasticDiffEq.forwardguiding(sdekernel, message, (u0, 0.0),
 @testset "Mitosis forward" begin
     @test pT.μ[] ≈ mean(samples) atol=atol
     @test pT.Σ[] ≈ cov(samples) atol=atol
-
 end
 
 
 # try tilted forward
 
-
 m, p2 = Mitosis.backwardfilter(gkernel2, V)
 gᵒ = Mitosis.left′(BFFG(), gkernel, gkernel2, m, [u0])
 
-message, solend = MitosisStochasticDiffEq.backwardfilter(sdekernel2, WG)
+message, solend = MitosisStochasticDiffEq.backwardfilter(sdekerneltilde2, WG)
 @testset "Mitosis backward tilted" begin
     @test (p2.c)[] ≈ solend.c
     @test (p2.Γ\p2.F)[] ≈ solend.μ atol=atol
@@ -120,13 +119,10 @@ end
 
 solfw, ll = MitosisStochasticDiffEq.forwardguiding(sdekernel2, message, (u0, 0.0), Z=nothing; save_noise=true)
 
-
 we((x,c)) = x*exp(c)
 samples2 = [MitosisStochasticDiffEq.forwardguiding(sdekernel2, message, (u0, 0.0), Z=nothing; save_noise=true)[1][:,end] for k in 1:K]
 
 samples = we.(samples2)
-
-
 
 @show std(samples)
 ptrue = Mitosis.density(p, [u0])

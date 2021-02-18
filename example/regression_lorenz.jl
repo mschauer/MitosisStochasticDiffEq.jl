@@ -4,7 +4,6 @@ using Statistics
 using LinearAlgebra
 using StochasticDiffEq
 
-
 # Estimate the parameters of a Lorenz SDE
 
 function f(du,u,p,t)
@@ -30,6 +29,7 @@ p = [10.0,28.0, 8/3]
 u0 = [1.0,0.0,0.0]
 tspan = (0.0,5.0)
 dt = 0.01
+trange = tspan[1]:dt:tspan[2]
 
 prob = SDEProblem(f, g, u0, tspan, p)
 sol = solve(prob, EM(false), dt = dt)
@@ -54,11 +54,12 @@ end
 
 
 # Solve the regression problem
-sdekernel = MitosisStochasticDiffEq.SDEKernel(f,g,tspan...,p,p,dt=dt)
+sdekernel = MitosisStochasticDiffEq.SDEKernel(f,g,trange,p)
 
 ϕprototype = zeros((3,3)) # prototypes for vectors
 yprototype = zeros((3,))
-R = MitosisStochasticDiffEq.Regression(sdekernel,yprototype,ϕprototype,paramjac=f_jac,intercept=ϕ0)
+R = MitosisStochasticDiffEq.Regression!(sdekernel,
+  yprototype,paramjac_prototype=ϕprototype,paramjac=f_jac,intercept=ϕ0)
 G = MitosisStochasticDiffEq.conjugate(R, sol, 0.1*I(3))
 
 # Estimate
