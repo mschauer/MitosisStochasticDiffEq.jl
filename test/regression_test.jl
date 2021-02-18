@@ -4,7 +4,6 @@ using Test, Random
 using Statistics
 using LinearAlgebra
 
-
 """
     conjugate_posterior(Y, Ξ)
 
@@ -31,19 +30,20 @@ function conjugate_posterior(Y, Ξ)
         #@show size(mu), size(Gϕ'), (dy - paramintercept(t, y)*ds)
         mu = mu + Gϕ'*(dy - paramintercept(t, y)*ds)
         t, y = t2, y2
-        G = G +  zi*ds
+        G = G + zi*ds
+        # @show ϕ, mu, G+Ξ, zi, ds
+        # if i==2
+        #   error()
+        # end
     end
     Mitosis.Gaussian{(:F,:Γ)}(mu, G + Ξ)
 end
 
-
-
 K = 1000
-Random.seed!(100)
 
 # define SDE function
-f(u,p,t) = p[1]*u .+ p[2]
-g(u,p,t) = p[3]
+foop(u,p,t) = p[1]*u .+ p[2]
+goop(u,p,t) = p[3]
 
 # paramjac
 function f_jac(J,u,p,t)
@@ -51,61 +51,59 @@ function f_jac(J,u,p,t)
   J[1,2] = true
   nothing
 end
-ϕprototype = zeros((1,2))
-yprototype = zeros((1))
+
+function f_jacoop(u,p,t)
+  [u[1]  true]
+end
 
 # intercept
 function ϕ0(du,u,p,t)
   du .= false
 end
 
+function ϕ0oop(u,p,t)
+  [zero(eltype(u))]
+end
+
+ϕprototype = zeros((1,2))
+yprototype = zeros(1)
+
 # time span
 tstart = 0.0
-tend = 200.0
+tend = 100.0
 dt = 0.01
+trange = tstart:dt:tend
 
 # initial condition
 u0 = 1.1
+arrayu0 = [u0]
 
 # set true model parameters
 par = [-0.3, 0.2, 0.5]
 
-# set of linear parameters Eq.~(2.2)
-plin = copy(par)
-pest = copy(par)
-sdekernel = MitosisStochasticDiffEq.SDEKernel(f,g,tstart,tend,pest,plin,dt=dt)
+# define SDE kernel
+sdekernel = MitosisStochasticDiffEq.SDEKernel(foop,goop,trange,par)
 
 # sample using MitosisStochasticDiffEq and EM default
+Random.seed!(100)
 sol, solend = MitosisStochasticDiffEq.sample(sdekernel, u0, save_noise=true)
+@show solend
 
-R = MitosisStochasticDiffEq.Regression(sdekernel,yprototype,
+R = MitosisStochasticDiffEq.Regression!(sdekernel,yprototype,
    paramjac_prototype=ϕprototype,paramjac=f_jac,intercept=ϕ0)
-
-
-Π = []
-Π2 = []
+R2 = MitosisStochasticDiffEq.Regression(sdekernel,paramjac=f_jacoop,intercept=ϕ0oop)
 
 G = MitosisStochasticDiffEq.conjugate(R, sol, 0.1*I(2))
-G2 = conjugate_posterior(sol, 0.1*I(2))
+G2 = MitosisStochasticDiffEq.conjugate(R2, sol, 0.1*I(2))
+G3 = conjugate_posterior(sol, 0.1*I(2))
+@test G ≈ G2 rtol=1e-10
+@test G.F ≈ G3.F rtol=1e-10
+@test G.Γ ≈ G3.Γ rtol=1e-10
+@test G2 ≈ G3 rtol=1e-10
+@test G2.F ≈ G3.F rtol=1e-10
+@test G2.Γ ≈ G3.Γ rtol=1e-10
 
-@test G == G2
-
-# test with ForwardDiff
-using ForwardDiff
-pf = MitosisStochasticDiffEq.ParamJacobianWrapper(sdekernel.f,sdekernel.tstart,[u0])
-f_jac(ϕprototype,[u0],pest,sdekernel.tstart)
-@test ForwardDiff.jacobian(pf, @view(pest[1:2])) == ϕprototype
-
-RAD = MitosisStochasticDiffEq.Regression(sdekernel,yprototype,paramjac_prototype=ϕprototype,intercept=ϕ0,θ=pest[1:2])
-GAD = MitosisStochasticDiffEq.conjugate(RAD, sol, 0.1*I(2))
-
-@test G == GAD
-
-RAD = MitosisStochasticDiffEq.Regression(sdekernel,yprototype,intercept=ϕ0,θ=pest[1:2])
-GAD = MitosisStochasticDiffEq.conjugate(RAD, sol, 0.1*I(2))
-
-@test G == GAD
-
+@show G.F
 
 # test samples
 mu = G.F
@@ -113,6 +111,8 @@ Gamma = G.Γ
 WL = (cholesky(Hermitian(Gamma)).U)'
 
 Random.seed!(1)
+Π = []
+Π2 = []
 for i=1:K
   th° = WL'\(randn(size(mu))+WL\mu)
   push!(Π,th°)
@@ -140,3 +140,22 @@ end
 # scatter!(first.(Π2), last.(Π2), markersize=1, c=:green, label="posterior samples")
 # scatter!([par[1]], [par[2]], color="red", label="truth")
 # savefig(pl, "regression.png")
+
+# test with ForwardDiff
+using ForwardDiff
+pf = MitosisStochasticDiffEq.ParamJacobianWrapper(sdekernel.f,first(sdekernel.trange),[u0])
+f_jac(ϕprototype,[u0],par,first(sdekernel.trange))
+@test f_jacoop(u0,par,first(sdekernel.trange)) == ϕprototype
+@test ForwardDiff.jacobian(pf, par[1:2]) == ϕprototype
+
+# check θ function
+RAD = MitosisStochasticDiffEq.Regression!(sdekernel,yprototype,
+  paramjac_prototype=ϕprototype,intercept=ϕ0,θ=par[1:2])
+GAD = MitosisStochasticDiffEq.conjugate(RAD, sol, 0.1*I(2))
+@test G ≈ GAD rtol=1e-10
+
+#check with intercept = nothing
+RAD = MitosisStochasticDiffEq.Regression!(sdekernel,yprototype,
+  paramjac_prototype=ϕprototype,θ=par[1:2])
+GAD = MitosisStochasticDiffEq.conjugate(RAD, sol, 0.1*I(2))
+@test G ≈ GAD rtol=1e-10

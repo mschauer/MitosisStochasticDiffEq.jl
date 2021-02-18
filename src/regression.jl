@@ -34,6 +34,7 @@ function conjugate(r::Regression, Y, prior::Gaussian)
     t = t2
     y = y2
     Γ = Γ + zi*ds
+
   end
   return Mitosis.Gaussian{(:F,:Γ)}(μ, Γ)
 end
@@ -69,6 +70,7 @@ function conjugate(r::Regression!, Y, prior::Gaussian)
     t = t2
     y .= y2
     Γ .= Γ + zi*ds
+
   end
   return Mitosis.Gaussian{(:F,:Γ)}(μ, Γ)
 end
