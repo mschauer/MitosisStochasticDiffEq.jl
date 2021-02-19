@@ -74,7 +74,7 @@ function backwardfilter(k::SDEKernel, (c, ν, P)::NamedTuple{(:logscale, :μ, :�
     u0 = mypack(ν, P, c)
 
     prob = ODEProblem{inplace}(filterODE, u0, reverse(get_tspan(trange)), p)
-    sol = solve(prob, alg, dt=dt = get_dt(trange))
+    sol = solve(prob, alg, dt = get_dt(trange))
     message = Message(sol, k)
     return message, sol[end]
 end
