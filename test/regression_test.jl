@@ -1,5 +1,6 @@
 using MitosisStochasticDiffEq
 using Mitosis
+using StochasticDiffEq
 using Test, Random
 using Statistics
 using LinearAlgebra
@@ -170,4 +171,74 @@ end
     GAD = MitosisStochasticDiffEq.conjugate(RAD, sol, 0.1*I(2))
     @test G ≈ GAD rtol=1e-10
   end
+end
+
+
+@testset "regression SDE Problem tests" begin
+  # define SDE function
+  foop(u,p,t) = p[1]*u .+ p[2]
+  goop(u,p,t) = p[3]
+
+  # paramjac
+  function f_jac(J,u,p,t)
+    J[1,1] = u[1]
+    J[1,2] = true
+    nothing
+  end
+
+  function f_jacoop(u,p,t)
+    [u[1]  true]
+  end
+
+  # intercept
+  function ϕ0(du,u,p,t)
+    du .= false
+  end
+
+  function ϕ0oop(u,p,t)
+    [zero(eltype(u))]
+  end
+
+  ϕprototype = zeros((1,2))
+  yprototype = zeros(1)
+
+  # time span
+  tstart = 0.0
+  tend = 100.0
+  dt = 0.01
+  trange = tstart:dt:tend
+
+  # initial condition
+  u0 = 1.1
+
+  # set true model parameters
+  par = [-0.3, 0.2, 0.5]
+
+  # define SDE Problem and sample using EM
+  Random.seed!(100)
+  prob = SDEProblem(foop, goop, u0, (tstart,tend), par)
+  sol = solve(prob, EM(), dt = dt)
+
+  @show sol[end]
+
+  R = MitosisStochasticDiffEq.Regression!(prob,yprototype,
+     paramjac_prototype=ϕprototype,paramjac=f_jac,intercept=ϕ0)
+  R2 = MitosisStochasticDiffEq.Regression(prob,paramjac=f_jacoop,intercept=ϕ0oop)
+
+  G = MitosisStochasticDiffEq.conjugate(R, sol, 0.1*I(2))
+  G2 = MitosisStochasticDiffEq.conjugate(R2, sol, 0.1*I(2))
+  G3 = conjugate_posterior(sol, 0.1*I(2))
+
+  @testset "iip tests" begin
+    @test G ≈ G3 rtol=1e-10
+    @test G.F ≈ G3.F rtol=1e-10
+    @test G.Γ ≈ G3.Γ rtol=1e-10
+  end
+  @testset "oop tests" begin
+    @test G2 ≈ G3 rtol=1e-10
+    @test G2.F ≈ G3.F rtol=1e-10
+    @test G2.Γ ≈ G3.Γ rtol=1e-10
+  end
+  @info G3.F
+  @info G3.Γ
 end

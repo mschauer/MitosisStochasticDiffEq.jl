@@ -36,7 +36,7 @@ struct Regression{kernelType,pJType,ifuncType,pfType,θType}
   θ::θType
 end
 
-function Regression(sdekernel::SDEKernel; paramjac=nothing,intercept=nothing,
+function Regression(sdekernel::Union{SDEKernel,SDEProblem}; paramjac=nothing,intercept=nothing,
     θ=sdekernel.p, yprototype=nothing)
 
   if paramjac === nothing
@@ -62,7 +62,7 @@ mutable struct Regression!{kernelType,pJType,ifuncType,phiType,uType,pfType,θTy
   θ::θType
 end
 
-function Regression!(sdekernel::SDEKernel, yprototype;
+function Regression!(sdekernel::Union{SDEKernel,SDEProblem}, yprototype;
       paramjac_prototype=nothing, paramjac=nothing, intercept=nothing,
       θ=sdekernel.p)
 
