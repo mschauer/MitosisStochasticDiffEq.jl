@@ -64,16 +64,20 @@ message2, backward2 = MitosisStochasticDiffEq.backwardfilter(sdetildekernel2, NT
 
 @test isapprox(backward1, backward2, rtol=1e-10)
 @test typeof(backward2.x[1]) <: SArray
-
+@test typeof(backward2.x[2]) <: SArray
+@test typeof(backward2.x[3]) <: SArray
 
 x0 = [1.34]
+x0stat = @SVector [1.34]
 ll0 = randn()
 
 Random.seed!(seed)
-samples1 = MitosisStochasticDiffEq.forwardguiding(sdekernel1, message1, (x0, ll0), inplace=true)
+samples1 = MitosisStochasticDiffEq.forwardguiding(sdekernel1, message1,
+  (x0, ll0), inplace=true)
 Random.seed!(seed)
-samples2 = MitosisStochasticDiffEq.forwardguiding(sdekernel2, message2, (x0, ll0), inplace=false)
+samples2 = MitosisStochasticDiffEq.forwardguiding(sdekernel2, message2,
+  (x0stat, ll0), inplace=false)
 
 @test isapprox(samples1[2][1], samples2[2][1], rtol=1e-10)
-@test_broken typeof(samples2[1][end]) <: SArray
+@test typeof(samples2[1][end]) <: SArray
 end
