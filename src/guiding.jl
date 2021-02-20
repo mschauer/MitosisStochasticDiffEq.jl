@@ -7,6 +7,10 @@ function range2ind(ts::AbstractVector, t)
   return abs(ts[first(r)] - t) < abs(ts[last(r)] - t) ? first(r) : last(r)
 end
 
+unpackx(a) = @view a[1:end-1]
+mypack(a::SArray,c::Number) = SArray([a; c])
+mypack(a,c::Number) = [a; c]
+
 # linear approximation
 (a::AffineMap)(u,p,t) = a.B*u .+ a.β
 (a::ConstantMap)(u,p,t) = a.x
@@ -17,8 +21,8 @@ function (G::GuidingDriftCache)(du,u,p,t)
   @unpack f, g = k
   @unpack ktilde, ts, soldis = message
 
-  x = @view u[1:end-1]
-  dx = @view du[1:end-1]
+  x = unpackx(u)
+  dx = unpackx(du)
   d = length(x)
 
   # find cursor
@@ -47,7 +51,7 @@ function (G::GuidingDriftCache)(u,p,t)
   @unpack f, g = k
   @unpack ktilde, ts, soldis = message
 
-  x = @view u[1:end-1]
+  x = unpackx(u)
   d = length(x)
 
   # find cursor
@@ -67,7 +71,7 @@ function (G::GuidingDriftCache)(u,p,t)
     error("Interpolation in forwardguiding is not yet implemented.")
   end
 
-  return [dx; dl]
+  return mypack(dx, dl)
 end
 
 # guided diffusion
@@ -92,11 +96,7 @@ function forwardguiding(k::SDEKernel, message, (x0, ll0), Z=nothing; alg=EM(fals
   numtraj=nothing, ensemblealg=EnsembleThreads(), output_func=(sol,i) -> (sol,false), inplace=true, kwargs...)
     @unpack f, g, trange, p = k
 
-    if inplace
-      u0 = [x0; ll0]
-    else
-      u0 = [x0; ll0]
-    end
+    u0 = mypack(x0,ll0)
 
     guided_f = GuidingDriftCache(k,message)
     guided_g = GuidingDiffusionCache(g)
