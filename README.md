@@ -12,7 +12,7 @@ If the (possibly non-linear) drift depends linearly on parameters, estimate the 
 ## Prerequisites
 
 Unregistered package. Requires
-* https://github.com/mschauer/Mitosis.jl (unregistered)
+* https://github.com/mschauer/Mitosis.jl
 
 
 ## Synopsis
