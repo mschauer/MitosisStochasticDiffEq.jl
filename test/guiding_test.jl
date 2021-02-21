@@ -278,3 +278,68 @@ end
   @test isapprox(Array(solfw)[1:dim,:], hcat(solfw2 ...), rtol=1e-12)
   @test isapprox(ll, ll2, rtol=1e-12)
 end
+
+
+@testset "Adaptive Guiding tests" begin
+  Random.seed!(12345)
+  using StochasticDiffEq, DiffEqNoiseProcess
+  # set true model parameters
+  p = [-0.1,0.2,0.9]
+
+  # set of linear parameters Eq.~(2.2)
+  B, β, σ̃ = -0.1, 0.2, 1.3
+  plin = [B, β, σ̃]
+  pest = [-0.4, 0.5, 1.4] # initial guess of parameter to be estimated
+
+  # time span
+  tstart = 0.0
+  tend = 1.0
+  dt = 0.001
+  trange = tstart:dt:tend
+
+  # intial condition
+  u0 = 1.1
+
+  # forward kernel
+  sdekernel = MitosisStochasticDiffEq.SDEKernel(f,g,trange,pest)
+
+  # initial values for ODE
+  mynames = (:logscale, :μ, :Σ);
+  myvalues = [0.0, 0.0, 10.0];
+  NT = NamedTuple{mynames}(myvalues)
+
+  # backward kernel
+  kerneltilde = MitosisStochasticDiffEq.SDEKernel(Mitosis.AffineMap(B, β), Mitosis.ConstantMap(σ̃), trange, plin)
+  message, backward = MitosisStochasticDiffEq.backwardfilter(kerneltilde, NT)
+
+
+  # define NoiseGrid
+  brownian_values = cumsum([[zeros(2)];[sqrt(dt)*randn(2) for i in 1:length(trange)-1]])
+  brownian_values2 = cumsum([[zeros(2)];[sqrt(dt)*randn(2) for i in 1:length(trange)-1]])
+  W = NoiseGrid(collect(trange),brownian_values,brownian_values2)
+
+  x0 = randn()
+  ll0 = randn()
+
+  solfw, ll = MitosisStochasticDiffEq.forwardguiding(sdekernel, message, (x0, ll0),
+            W; alg=LambaEM(), dt=dt, isadaptive=false)
+  solfw2, ll2 = MitosisStochasticDiffEq.forwardguiding(sdekernel, message, (x0, ll0),
+            W; alg=LambaEM(), dt=dt, isadaptive=true)
+  solfw3, ll3 = MitosisStochasticDiffEq.forwardguiding(sdekernel, message, (x0, ll0),
+            W; alg=SOSRI(), dt=dt, isadaptive=true)
+
+  @test isapprox(ll, ll2, rtol=1e-1)
+  @test isapprox(ll, ll3, rtol=1e-1)
+  @test isapprox(ll2, ll2, rtol=1e-1)
+  @test isapprox(solfw(solfw2.t).u, solfw2.u, rtol=1e-1)
+  @test isapprox(solfw(solfw3.t).u, solfw3.u, rtol=1e-1)
+
+  @show length(solfw.t), length(solfw2.t), length(solfw3.t)
+
+# using Plots
+# pl = plot(solfw)
+# plot!(solfw2)
+# plot!(solfw3)
+# savefig(pl,"adaptive_guiding.png")
+
+end
