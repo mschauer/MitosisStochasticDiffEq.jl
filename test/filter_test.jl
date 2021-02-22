@@ -19,9 +19,11 @@ function backwardfilter((c, ν, P)::NamedTuple{(:logscale, :μ, :Σ)}, p, s)
         dt = s[i+1] - s[i]
         H = inv(P)
         F = H*ν
-        P = P - dt*(B*P + P*B' .- σ̃*σ̃')
+
+        P = P - dt*(B*P + P*B' - σ̃*σ̃'*I)
         ν = ν - dt*(B*ν .+ β)
         c = c - dt*tr(B)
+
         push!(ps, [ν, P, c])
     end
     ps, [ν, P, c]

@@ -5,15 +5,10 @@ mypack(a::Number...) = [a...]
 mypack(a::SArray,b::SArray,c::Number) = ArrayPartition(a,b,@SVector[c])
 mypack(a::SArray,b::SArray,c::SArray) = ArrayPartition(a,b,c)
 
-compute_dP(B,P,σtil::Number) = B*P + P*B' - σtil*σtil'*I
+
 compute_dP(B,P,σtil) = B*P + P*B' - outer_(σtil)
 compute_dν(B,ν,β::Number) = B*ν .+ β
 compute_dν(B,ν,β) = B*ν + β
-
-function compute_dP!(dP,B,P,σtil::Number)
-  dP .= B*P + P*B' .- outer_(σtil)
-  return nothing
-end
 
 function compute_dP!(dP,B,P,σtil)
   dP .= B*P + P*B' - outer_(σtil)
