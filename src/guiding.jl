@@ -1,6 +1,8 @@
 function range2ind(ts::AbstractRange, t)
   indx = round(Int, (t-first(ts))/step(ts))
   indx += one(indx)
+  indx = maximum((minimum((indx,one(indx))),length(ts)))
+  return indx
 end
 
 function range2ind(ts::AbstractVector, t)
@@ -46,7 +48,7 @@ function (G::GuidingDriftCache)(du,u,p,t)
 
   du[end] = dot(f(x,p,t) - ktilde.f(x,ktilde.p,t), r) - 0.5*tr((outer_(g(x,p,t)) - outer_(ktilde.g(x,ktilde.p,t)))*(inv(P) - outer_(r)))
   dx[:] .= vec(f(x, p, t) + (outer_(g(x, p, t))*r)) # evolution guided by observations
-  
+
   return nothing
 end
 
