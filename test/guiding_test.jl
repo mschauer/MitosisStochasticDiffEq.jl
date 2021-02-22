@@ -25,7 +25,7 @@ function forwardguiding(plin, pest, s, (x, ll), ps, Z=randn(length(s)), noisetyp
 
     function llstep(x, r, t, P, noisetype)
       tmp = MitosisStochasticDiffEq.outer_(g(x,pest,t)) - MitosisStochasticDiffEq.outer_(σlinear(x,plin,t))
-      dll = dot(f(x,pest,t) - flinear(x,plin,t), r) -0.5*tr(tmp*(inv(P) .- r*r'))
+      dll = dot(f(x,pest,t) - flinear(x,plin,t), r) -0.5*tr(tmp*(inv(P) - MitosisStochasticDiffEq.outer_(r)))
     end
 
     xs = typeof(x)[]

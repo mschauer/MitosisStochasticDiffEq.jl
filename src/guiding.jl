@@ -46,7 +46,7 @@ function (G::GuidingDriftCache)(du,u,p,t)
 
   du[end] = dot(f(x,p,t) - ktilde.f(x,ktilde.p,t), r) - 0.5*tr((outer_(g(x,p,t)) - outer_(ktilde.g(x,ktilde.p,t)))*(inv(P) - outer_(r)))
   dx[:] .= vec(f(x, p, t) + (outer_(g(x, p, t))*r)) # evolution guided by observations
-
+  
   return nothing
 end
 
@@ -74,7 +74,7 @@ function (G::GuidingDriftCache)(u,p,t)
 
   r = P\(ν .- x)
 
-  dl = dot(f(x,p,t) -  ktilde.f(x,ktilde.p,t), r) - 0.5*tr((outer_(g(x,p,t)) - outer_(ktilde.g(x,ktilde.p,t)))*(inv(P) .- outer_(r)))
+  dl = dot(f(x,p,t) -  ktilde.f(x,ktilde.p,t), r) - 0.5*tr((outer_(g(x,p,t)) - outer_(ktilde.g(x,ktilde.p,t)))*(inv(P) - outer_(r)))
   dx = vec(f(x, p, t) + outer_(g(x, p, t))*r) # evolution guided by observations
 
   return mypack(dx, dl)
