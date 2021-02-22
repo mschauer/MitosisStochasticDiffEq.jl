@@ -5,18 +5,18 @@ mypack(a::Number...) = [a...]
 mypack(a::SArray,b::SArray,c::Number) = ArrayPartition(a,b,@SVector[c])
 mypack(a::SArray,b::SArray,c::SArray) = ArrayPartition(a,b,c)
 
-compute_dP(B,P,σtil::Number) = B*P + P*B' .- σtil*σtil'
-compute_dP(B,P,σtil) = B*P + P*B' - σtil*σtil'
+compute_dP(B,P,σtil::Number) = B*P + P*B' .- outer_(σtil)
+compute_dP(B,P,σtil) = B*P + P*B' - outer_(σtil)
 compute_dν(B,ν,β::Number) = B*ν .+ β
 compute_dν(B,ν,β) = B*ν + β
 
 function compute_dP!(dP,B,P,σtil::Number)
-  dP .= B*P + P*B' .- σtil*σtil'
+  dP .= B*P + P*B' .- outer_(σtil)
   return nothing
 end
 
 function compute_dP!(dP,B,P,σtil)
-  dP .= B*P + P*B' - σtil*σtil'
+  dP .= B*P + P*B' - outer_(σtil)
   return nothing
 end
 
@@ -63,18 +63,18 @@ function filterODE(du, u, p, t)
 end
 
 function backwardfilter(k::SDEKernel, p::WGaussian{(:μ, :Σ, :c)}; alg=Euler(), inplace=false)
-    message, solend = backwardfilter(k::SDEKernel, NamedTuple{(:logscale, :μ, :Σ)}((p.c, p.μ, p.Σ)); alg=alg, inplace=inplace)
-    return message, WGaussian{(:μ, :Σ, :c)}(myunpack(solend)...)
+  message, solend = backwardfilter(k::SDEKernel, NamedTuple{(:logscale, :μ, :Σ)}((p.c, p.μ, p.Σ)); alg=alg, inplace=inplace)
+  return message, WGaussian{(:μ, :Σ, :c)}(myunpack(solend)...)
 end
 
 function backwardfilter(k::SDEKernel, (c, ν, P)::NamedTuple{(:logscale, :μ, :Σ)}; alg=Euler(), inplace=false)
-    @unpack trange, p = k
+  @unpack trange, p = k
 
-    # Initialize OD
-    u0 = mypack(ν, P, c)
+  # Initialize OD
+  u0 = mypack(ν, P, c)
 
-    prob = ODEProblem{inplace}(filterODE, u0, reverse(get_tspan(trange)), p)
-    sol = solve(prob, alg, dt = get_dt(trange))
-    message = Message(sol, k)
-    return message, sol[end]
+  prob = ODEProblem{inplace}(filterODE, u0, reverse(get_tspan(trange)), p)
+  sol = solve(prob, alg, dt = get_dt(trange))
+  message = Message(sol, k)
+  return message, sol[end]
 end

@@ -43,7 +43,7 @@ function (G::GuidingDriftCache)(du,u,p,t)
 
   r = P\(ν - x)
 
-  du[end] = dot(f(x,p,t) - ktilde.f(x,ktilde.p,t), r) - 0.5*tr((outer_(g(x,p,t)) - outer_(ktilde.g(x,ktilde.p,t)))*(inv(P) - r*r'))
+  du[end] = dot(f(x,p,t) - ktilde.f(x,ktilde.p,t), r) - 0.5*tr((outer_(g(x,p,t)) - outer_(ktilde.g(x,ktilde.p,t)))*(inv(P) - outer_(r)))
   dx[:] .= vec(f(x, p, t) + (outer_(g(x, p, t))*r)) # evolution guided by observations
 
   return nothing
@@ -73,7 +73,7 @@ function (G::GuidingDriftCache)(u,p,t)
 
   r = P\(ν .- x)
 
-  dl = dot(f(x,p,t) -  ktilde.f(x,ktilde.p,t), r) - 0.5*tr((outer_(g(x,p,t)) - outer_(ktilde.g(x,ktilde.p,t)))*(inv(P) .- r*r'))
+  dl = dot(f(x,p,t) -  ktilde.f(x,ktilde.p,t), r) - 0.5*tr((outer_(g(x,p,t)) - outer_(ktilde.g(x,ktilde.p,t)))*(inv(P) .- outer_(r)))
   dx = vec(f(x, p, t) + outer_(g(x, p, t))*r) # evolution guided by observations
 
   return mypack(dx, dl)
@@ -98,29 +98,30 @@ end
 
 
 function forwardguiding(k::SDEKernel, message, (x0, ll0), Z=nothing; alg=EM(false),
-  dt=get_dt(k.trange), isadaptive=StochasticDiffEq.isadaptive(alg),
-  numtraj=nothing, ensemblealg=EnsembleThreads(), output_func=(sol,i) -> (sol,false),
-  inplace=true, kwargs...)
-    @unpack f, g, trange, p = k
+    dt=get_dt(k.trange), isadaptive=StochasticDiffEq.isadaptive(alg),
+    numtraj=nothing, ensemblealg=EnsembleThreads(), output_func=(sol,i) -> (sol,false),
+    inplace=true, kwargs...)
 
-    u0 = mypack(x0,ll0)
+  @unpack f, g, trange, p = k
 
-    guided_f = GuidingDriftCache(k,message)
-    guided_g = GuidingDiffusionCache(g)
+  u0 = mypack(x0,ll0)
 
-    if Z!==nothing
-      prob = SDEProblem{inplace}(guided_f, guided_g, u0, get_tspan(trange), p, noise=Z)
-    else
-      prob = SDEProblem{inplace}(guided_f, guided_g, u0, get_tspan(trange), p)
-    end
+  guided_f = GuidingDriftCache(k,message)
+  guided_g = GuidingDiffusionCache(g)
 
-    if numtraj==nothing
-      sol = solve(prob, alg, dt=dt, adaptive=isadaptive; kwargs...)
-    else
-      ensembleprob = EnsembleProblem(prob, output_func = output_func)
-      sol = solve(ensembleprob, alg, ensemblealg=ensemblealg,
+  if Z!==nothing
+    prob = SDEProblem{inplace}(guided_f, guided_g, u0, get_tspan(trange), p, noise=Z)
+  else
+    prob = SDEProblem{inplace}(guided_f, guided_g, u0, get_tspan(trange), p)
+  end
+
+  if numtraj==nothing
+    sol = solve(prob, alg, dt=dt, adaptive=isadaptive; kwargs...)
+  else
+    ensembleprob = EnsembleProblem(prob, output_func = output_func)
+    sol = solve(ensembleprob, alg, ensemblealg=ensemblealg,
         dt=dt, adaptive=isadaptive, trajectories=numtraj; kwargs...)
-    end
+  end
 
-    return sol, sol[end][end]
+  return sol, sol[end][end]
 end
