@@ -1,5 +1,6 @@
 function range2ind(ts::AbstractRange, t)
-  round(Int, t*step(ts) - start(ts))
+  indx = round(Int, (t-first(ts))/step(ts))
+  indx += one(indx)
 end
 
 function range2ind(ts::AbstractVector, t)
