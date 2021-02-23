@@ -8,7 +8,6 @@ mypack(a::SArray,b::SArray,c::SArray) = ArrayPartition(a,b,c)
 
 compute_dP(B,P,σtil) = B*P + P*B' - outer_(σtil)
 compute_dP(B,P::SArray,σtil::Number) = B*P + P*B' - σtil*σtil'*similar_type(P, Size(size(P,1),size(P,1)))(I)
-compute_dP(B::Number,P::SArray,σtil::Number) = B*P + P*B' - σtil*σtil'* @SVector ones(size(P,1))
 compute_dν(B,ν,β::Number) = B*ν .+ β
 compute_dν(B,ν,β) = B*ν + β
 
