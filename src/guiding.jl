@@ -103,7 +103,7 @@ end
 function forwardguiding(k::SDEKernel, message, (x0, ll0), Z=nothing; alg=EM(false),
     dt=get_dt(k.trange), isadaptive=StochasticDiffEq.isadaptive(alg),
     numtraj=nothing, ensemblealg=EnsembleThreads(), output_func=(sol,i) -> (sol,false),
-    inplace=true, kwargs...)
+    inplace=true, tstops=nothing, kwargs...)
 
   @unpack f, g, trange, p = k
 
@@ -119,11 +119,20 @@ function forwardguiding(k::SDEKernel, message, (x0, ll0), Z=nothing; alg=EM(fals
   end
 
   if numtraj==nothing
-    sol = solve(prob, alg, dt=dt, adaptive=isadaptive; kwargs...)
+    if tstops===nothing
+      sol = solve(prob, alg, dt=dt, adaptive=isadaptive; kwargs...)
+    else
+      sol = solve(prob, alg, tstops=tstops; kwargs...)
+    end
   else
     ensembleprob = EnsembleProblem(prob, output_func = output_func)
-    sol = solve(ensembleprob, alg, ensemblealg=ensemblealg,
+    if tstops===nothing
+      sol = solve(ensembleprob, alg, ensemblealg=ensemblealg,
         dt=dt, adaptive=isadaptive, trajectories=numtraj; kwargs...)
+    else
+      sol = solve(ensembleprob, alg, ensemblealg=ensemblealg,
+        tstops=tstops, trajectories=numtraj; kwargs...)
+    end
   end
 
   return sol, sol[end][end]

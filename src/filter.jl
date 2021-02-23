@@ -58,19 +58,28 @@ function filterODE(du, u, p, t)
   return nothing
 end
 
-function backwardfilter(k::SDEKernel, p::WGaussian{(:μ, :Σ, :c)}; alg=Euler(), inplace=false)
-  message, solend = backwardfilter(k::SDEKernel, NamedTuple{(:logscale, :μ, :Σ)}((p.c, p.μ, p.Σ)); alg=alg, inplace=inplace)
+function backwardfilter(k::SDEKernel, p::WGaussian{(:μ, :Σ, :c)}; alg=Euler(),
+    inplace=false, apply_timechange=false)
+  message, solend = backwardfilter(k::SDEKernel, NamedTuple{(:logscale, :μ, :Σ)}((p.c, p.μ, p.Σ));
+    alg=alg, inplace=inplace, apply_timechange=apply_timechange)
   return message, WGaussian{(:μ, :Σ, :c)}(myunpack(solend)...)
 end
 
-function backwardfilter(k::SDEKernel, (c, ν, P)::NamedTuple{(:logscale, :μ, :Σ)}; alg=Euler(), inplace=false)
+function backwardfilter(k::SDEKernel, (c, ν, P)::NamedTuple{(:logscale, :μ, :Σ)};
+    alg=Euler(), inplace=false, apply_timechange=false)
   @unpack trange, p = k
 
   # Initialize OD
   u0 = mypack(ν, P, c)
 
   prob = ODEProblem{inplace}(filterODE, u0, reverse(get_tspan(trange)), p)
-  sol = solve(prob, alg, dt = get_dt(trange))
-  message = Message(sol, k)
+  if !apply_timechange
+    sol = solve(prob, alg, dt = get_dt(trange))
+  else
+    _ts = timechange(trange)
+    sol = solve(prob, alg, tstops=_ts)
+  end
+
+  message = Message(sol, k, apply_timechange)
   return message, sol[end]
 end
