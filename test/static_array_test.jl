@@ -54,7 +54,7 @@ myvalues1 =  [0.0, 1.5, 0.1];
 NT1 = NamedTuple{mynames}(myvalues1)
 
 #myvalues2 = @SVector [0.0, 1.5, 0.1] # will be just converted to a standard array
-myvalues2 = [(@SVector [0.0]), (@SVector [1.5]), (@SVector[0.1]) ]
+myvalues2 = [0.0, (@SVector [1.5]), (@SMatrix[0.1])]
 NT2 = NamedTuple{mynames}(myvalues2)
 
 sdetildekernel1 = MitosisStochasticDiffEq.SDEKernel(f,g,trange,plin)
