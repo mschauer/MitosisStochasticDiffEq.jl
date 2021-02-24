@@ -379,7 +379,7 @@ end
   ll0 = randn()
 
   solfw, ll = MitosisStochasticDiffEq.forwardguiding(sdekernel, message, (x0, ll0);
-    isadaptive=false, tstops=message.ts)
+    isadaptive=false)
 
   @test isapprox(solfw.t, message.ts, rtol=1e-10)
   @test isapprox(solfw.t, MitosisStochasticDiffEq.timechange(trange), rtol=1e-10)

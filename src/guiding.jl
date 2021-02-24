@@ -1,7 +1,7 @@
 function range2ind(ts::AbstractRange, t)
   indx = round(Int, (t-first(ts))/step(ts))
   indx += one(indx)
-  indx = maximum((minimum((indx,one(indx))),length(ts)))
+  indx = minimum((maximum((indx,one(indx))),length(ts)))
   return indx
 end
 
@@ -103,7 +103,7 @@ end
 function forwardguiding(k::SDEKernel, message, (x0, ll0), Z=nothing; alg=EM(false),
     dt=get_dt(k.trange), isadaptive=StochasticDiffEq.isadaptive(alg),
     numtraj=nothing, ensemblealg=EnsembleThreads(), output_func=(sol,i) -> (sol,false),
-    inplace=true, tstops=nothing, kwargs...)
+    inplace=true, kwargs...)
 
   @unpack f, g, trange, p = k
 
@@ -119,19 +119,19 @@ function forwardguiding(k::SDEKernel, message, (x0, ll0), Z=nothing; alg=EM(fals
   end
 
   if numtraj==nothing
-    if tstops===nothing
-      sol = solve(prob, alg, dt=dt, adaptive=isadaptive; kwargs...)
+    if !isadaptive
+      sol = solve(prob, alg, tstops=message.ts; kwargs...)
     else
-      sol = solve(prob, alg, tstops=tstops; kwargs...)
+      sol = solve(prob, alg, dt=dt, adaptive=isadaptive, tstops=message.ts; kwargs...)
     end
   else
     ensembleprob = EnsembleProblem(prob, output_func = output_func)
-    if tstops===nothing
+    if !isadaptive
       sol = solve(ensembleprob, alg, ensemblealg=ensemblealg,
-        dt=dt, adaptive=isadaptive, trajectories=numtraj; kwargs...)
+        tstops=message.ts, trajectories=numtraj; kwargs...)
     else
       sol = solve(ensembleprob, alg, ensemblealg=ensemblealg,
-        tstops=tstops, trajectories=numtraj; kwargs...)
+        dt=dt, adaptive=isadaptive, tstops=message.ts, trajectories=numtraj; kwargs...)
     end
   end
 
