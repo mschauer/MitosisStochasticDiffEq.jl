@@ -106,7 +106,7 @@ end
   message, solend = MitosisStochasticDiffEq.backwardfilter(kernel, NT)
   message2, solend2 = backwardfilter(NT, plin, message.ts)
 
-  @test isapprox(solend.x[1], solend2[1], rtol=1e-15)
+  @test isapprox(solend.x[1], solend2[1], rtol=1e-14)
   @test isapprox(solend.x[2], solend2[2], rtol=1e-14)
   @test isapprox(solend.x[3][1], solend2[3], rtol=1e-14)
 
