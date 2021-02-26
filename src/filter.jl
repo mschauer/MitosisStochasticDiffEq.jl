@@ -71,15 +71,21 @@ function backwardfilter(k::SDEKernel, (c, ν, P)::NamedTuple{(:logscale, :μ, :�
 
   # Initialize OD
   u0 = mypack(ν, P, c)
-
   prob = ODEProblem{inplace}(filterODE, u0, reverse(get_tspan(trange)), p)
+
+
   if !apply_timechange
-    sol = solve(prob, alg, dt = get_dt(trange), abstol=abstol, reltol=reltol)
+    _ts = trange # use collect() here?
   else
     _ts = timechange(trange)
-    sol = solve(prob, alg, tstops=_ts)
   end
 
+  if !OrdinaryDiffEq.isadaptive(alg)
+    sol = solve(prob, alg, tstops=_ts, abstol=abstol, reltol=reltol)
+  else
+    sol = solve(prob, alg, dt=get_dt(k.trange), tstops=_ts, abstol=abstol, reltol=reltol)
+  end
   message = Message(sol, k, apply_timechange)
+
   return message, sol[end]
 end

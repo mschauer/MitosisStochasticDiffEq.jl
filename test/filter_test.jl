@@ -173,3 +173,45 @@ end
   @test isapprox(Array(message.sol), reduce(hcat, message2), rtol=1e-15)
 
 end
+
+
+@testset "backward filtering adaptive tests" begin
+  # define SDE function
+  using OrdinaryDiffEq
+
+  f(u,p,t) = p[1]*u .+ p[2]
+  g(u,p,t) = p[3]
+
+  # time span
+  tstart = 0.0
+  tend = 1.0
+  dt = 0.05 # more coarse grained dt
+  trange = tstart:dt:tend
+
+  # intial condition
+  u0 = 1.1
+
+  # set of linear parameters Eq.~(2.2)
+  B, β, σ̃ = -0.1, 0.2, 1.3
+  plin = [B, β, σ̃]
+
+  # initial values for ODE
+  mynames = (:logscale, :μ, :Σ);
+  myvalues = [0.0, 0.0, 10.0];
+  NT = NamedTuple{mynames}(myvalues)
+
+  tildekernel = MitosisStochasticDiffEq.SDEKernel(Mitosis.AffineMap(B, β), Mitosis.ConstantMap(σ̃), trange, plin)
+  message, solend = MitosisStochasticDiffEq.backwardfilter(tildekernel, NT, alg=Tsit5(), apply_timechange=true)
+
+  # adaptive solution with large tolerances follows tstops
+  @test length(message.ts) == length(trange)
+  @test message.ts != trange
+  @test message.ts == MitosisStochasticDiffEq.timechange(trange)
+
+  message2, solend2 = MitosisStochasticDiffEq.backwardfilter(tildekernel, NT, alg=Tsit5(),
+    abstol=1e-12, reltol=1e-12, apply_timechange=true)
+
+  # adaptive solution with small tolerances steps to tstops but also takes additional substeps
+  @test length(message.ts) != length(message2.ts)
+  @test minimum(message.ts .∈ [message2.ts])
+end

@@ -109,6 +109,9 @@ function forwardguiding(k::SDEKernel, message, (x0, ll0), Z=nothing; alg=EM(fals
 
   u0 = mypack(x0,ll0)
 
+  # check that message.ts is sorted
+  !issorted(message.ts) && error("Something went wrong. Message.ts is not sorted! Please report this.")
+
   guided_f = GuidingDriftCache(k,message)
   guided_g = GuidingDiffusionCache(g)
 
@@ -122,7 +125,7 @@ function forwardguiding(k::SDEKernel, message, (x0, ll0), Z=nothing; alg=EM(fals
     if !isadaptive
       sol = solve(prob, alg, tstops=message.ts; kwargs...)
     else
-      sol = solve(prob, alg, dt=dt, adaptive=isadaptive, tstops=message.ts; kwargs...)
+      sol = solve(prob, alg, dt=dt, adaptive=isadaptive; kwargs...)
     end
   else
     ensembleprob = EnsembleProblem(prob, output_func = output_func)
@@ -131,7 +134,7 @@ function forwardguiding(k::SDEKernel, message, (x0, ll0), Z=nothing; alg=EM(fals
         tstops=message.ts, trajectories=numtraj; kwargs...)
     else
       sol = solve(ensembleprob, alg, ensemblealg=ensemblealg,
-        dt=dt, adaptive=isadaptive, tstops=message.ts, trajectories=numtraj; kwargs...)
+        dt=dt, adaptive=isadaptive, trajectories=numtraj; kwargs...)
     end
   end
 
