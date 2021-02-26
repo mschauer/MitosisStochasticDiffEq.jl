@@ -1,7 +1,7 @@
 function range2ind(ts::AbstractRange, t)
   indx = round(Int, (t-first(ts))/step(ts))
   indx += one(indx)
-  indx = maximum((minimum((indx,one(indx))),length(ts)))
+  indx = minimum((maximum((indx,one(indx))),length(ts)))
   return indx
 end
 
@@ -109,6 +109,9 @@ function forwardguiding(k::SDEKernel, message, (x0, ll0), Z=nothing; alg=EM(fals
 
   u0 = mypack(x0,ll0)
 
+  # check that message.ts is sorted
+  !issorted(message.ts) && error("Something went wrong. Message.ts is not sorted! Please report this.")
+
   guided_f = GuidingDriftCache(k,message)
   guided_g = GuidingDiffusionCache(g)
 
@@ -119,11 +122,20 @@ function forwardguiding(k::SDEKernel, message, (x0, ll0), Z=nothing; alg=EM(fals
   end
 
   if numtraj==nothing
-    sol = solve(prob, alg, dt=dt, adaptive=isadaptive; kwargs...)
+    if !isadaptive
+      sol = solve(prob, alg, tstops=message.ts; kwargs...)
+    else
+      sol = solve(prob, alg, dt=dt, adaptive=isadaptive; kwargs...)
+    end
   else
     ensembleprob = EnsembleProblem(prob, output_func = output_func)
-    sol = solve(ensembleprob, alg, ensemblealg=ensemblealg,
+    if !isadaptive
+      sol = solve(ensembleprob, alg, ensemblealg=ensemblealg,
+        tstops=message.ts, trajectories=numtraj; kwargs...)
+    else
+      sol = solve(ensembleprob, alg, ensemblealg=ensemblealg,
         dt=dt, adaptive=isadaptive, trajectories=numtraj; kwargs...)
+    end
   end
 
   return sol, sol[end][end]

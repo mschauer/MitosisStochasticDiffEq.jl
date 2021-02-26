@@ -12,9 +12,13 @@ struct Message{kernelType,solType,sol2Type,tType}
   ts::tType
 end
 
-function Message(sol, sdekernel::SDEKernel)
+function Message(sol, sdekernel::SDEKernel, apply_timechange=false)
   soldis = reverse(Array(sol), dims=2)
-  ts = reverse(sol.t)
+  if OrdinaryDiffEq.isadaptive(sol.alg) || apply_timechange
+    ts = reverse(sol.t)
+  else
+    ts = sdekernel.trange
+  end
   Message{typeof(sdekernel),typeof(sol),typeof(soldis),typeof(ts)}(sdekernel,sol,soldis,ts)
 end
 

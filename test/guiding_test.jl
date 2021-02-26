@@ -343,3 +343,46 @@ end
 # savefig(pl,"adaptive_guiding.png")
 
 end
+
+@testset "timechange Guiding tests" begin
+  Random.seed!(12345)
+  # set true model parameters
+  p = [-0.1,0.2,0.9]
+
+  # set of linear parameters Eq.~(2.2)
+  B, β, σ̃ = -0.1, 0.2, 1.3
+  plin = [B, β, σ̃]
+  pest = [-0.4, 0.5, 1.4] # initial guess of parameter to be estimated
+
+  # time span
+  tstart = 0.0
+  tend = 1.0
+  dt = 0.001
+  trange = tstart:dt:tend
+
+  # intial condition
+  u0 = 1.1
+
+  # forward kernel
+  sdekernel = MitosisStochasticDiffEq.SDEKernel(f,g,trange,pest)
+
+  # initial values for ODE
+  mynames = (:logscale, :μ, :Σ);
+  myvalues = [0.0, 0.0, 10.0];
+  NT = NamedTuple{mynames}(myvalues)
+
+  # backward kernel
+  kerneltilde = MitosisStochasticDiffEq.SDEKernel(Mitosis.AffineMap(B, β), Mitosis.ConstantMap(σ̃), trange, plin)
+  message, backward = MitosisStochasticDiffEq.backwardfilter(kerneltilde, NT, apply_timechange=true)
+
+  x0 = randn()
+  ll0 = randn()
+
+  solfw, ll = MitosisStochasticDiffEq.forwardguiding(sdekernel, message, (x0, ll0);
+    isadaptive=false)
+
+  @test isapprox(solfw.t, message.ts, rtol=1e-10)
+  @test isapprox(solfw.t, MitosisStochasticDiffEq.timechange(trange), rtol=1e-10)
+  @test length(solfw.t) == length(trange)
+
+end
