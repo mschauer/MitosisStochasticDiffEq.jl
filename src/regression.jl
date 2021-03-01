@@ -4,7 +4,7 @@ function conjugate(r::Union{Regression,Regression!}, Y, Γ0::AbstractArray)
 end
 
 function conjugate(r::Regression, Y, prior::Gaussian)
-  @unpack k, fjac, ϕ0func, θ = r
+  @unpack k, fjac, ϕ0func, θ, dy, isscalar = r
   @unpack g, p = k
 
   t = Y.t[1]
@@ -16,7 +16,16 @@ function conjugate(r::Regression, Y, prior::Gaussian)
 
   for i in 1:length(Y)-1
     ϕ = calc_J(y, r, θ, t)
-    Gϕ = pinv(outer_(g(y, p, t)))*ϕ
+    if isinplace(r)
+      g(dy, y, p, t)
+    else
+      dy = g(y, p, t)
+    end
+    if !isscalar
+      Gϕ = pinv(outer_(dy))*ϕ
+    else
+      Gϕ = pinv(outer_(reshape(dy, :, 1)))*ϕ
+    end
     zi = ϕ'*Gϕ
     t2 = Y.t[i + 1]
     y2 = Y.u[i + 1]
@@ -26,21 +35,21 @@ function conjugate(r::Regression, Y, prior::Gaussian)
     # compute intercept
     if ϕ0func !== nothing
       ϕ0 = ϕ0func(y, p, t)
-      μ = μ + Gϕ'*((y2 - y) .- ϕ0*ds)
+      μ = μ .+ Gϕ'*((y2 - y) .- ϕ0*ds)
     else
-      μ = μ + Gϕ'*(y2 - y)
+      μ = μ .+ Gϕ'*(y2 - y)
     end
 
     t = t2
     y = y2
-    Γ = Γ + zi*ds
+    Γ = Γ .+ zi*ds
 
   end
   return Mitosis.Gaussian{(:F,:Γ)}(μ, Γ)
 end
 
 function conjugate(r::Regression!, Y, prior::Gaussian)
-  @unpack k, fjac!, ϕ0func!, ϕ, ϕ0, y, y2, θ = r
+  @unpack k, fjac!, ϕ0func!, ϕ, ϕ0, y, y2, θ, dy, isscalar = r
   @unpack g, p = k
 
   t = Y.t[1]
@@ -52,7 +61,16 @@ function conjugate(r::Regression!, Y, prior::Gaussian)
 
   for i in 1:length(Y)-1
     calc_J!(ϕ, r, θ, t)
-    Gϕ = pinv(outer_(g(y, p, t)))*ϕ
+    if isinplace(r)
+      g(dy, y, p, t)
+    else
+      dy = g(y, p, t)
+    end
+    if !isscalar
+      Gϕ = pinv(outer_(dy))*ϕ
+    else
+      Gϕ = pinv(outer_(reshape(dy, :, 1)))*ϕ
+    end
     zi = ϕ'*Gϕ
     t2 = Y.t[i + 1]
     copyto!(y2, Y.u[i + 1])

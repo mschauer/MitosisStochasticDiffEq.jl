@@ -6,6 +6,18 @@ end
 
 (ff::ParamJacobianWrapper)(p) = ff.f(ff.u,p,ff.t)
 
+mutable struct ParamJacobianWrapper2{fType,tType,uType} <: Function
+  f::fType
+  t::tType
+  u::uType
+end
+
+function (ff::ParamJacobianWrapper2)(p)
+  du1 = similar(p, size(ff.u))
+  ff.f(du1,ff.u,p,ff.t)
+  return du1
+end
+
 function calc_J!(ϕ, r::Regression!, p, t)
   @unpack fjac!, y = r
 

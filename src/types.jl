@@ -31,30 +31,71 @@ struct GuidingDiffusionCache{gType}
   g::gType
 end
 
+abstract type AbstractRegression{inplace} end
 
-struct Regression{kernelType,pJType,ifuncType,pfType,θType}
+struct Regression{kernelType,pJType,ifuncType,pfType,θType,duType,inplace} <: AbstractRegression{inplace}
   k::kernelType
   fjac::pJType
   ϕ0func::ifuncType
   pf::pfType
   θ::θType
+  dy::duType
+  isscalar::Bool
 end
 
-function Regression(sdekernel::Union{SDEKernel,SDEProblem}; paramjac=nothing,intercept=nothing,
-    θ=sdekernel.p, yprototype=nothing)
+function Regression{iip}(sdekernel::Union{SDEKernel,SDEProblem}; paramjac=nothing,
+    intercept=nothing, θ=sdekernel.p, yprototype=nothing,
+    dyprototype=nothing, m=nothing) where iip
 
   if paramjac === nothing
-    pf = ParamJacobianWrapper(sdekernel.f,first(sdekernel.trange),yprototype)
+    if iip
+      pf = ParamJacobianWrapper2(sdekernel.f,first(sdekernel.trange),yprototype)
+    else
+      pf = ParamJacobianWrapper(sdekernel.f,first(sdekernel.trange),yprototype)
+    end
   else
     pf = nothing
   end
 
-  Regression{typeof(sdekernel),typeof(paramjac),typeof(intercept),typeof(pf),typeof(θ)}(sdekernel,
-    paramjac,intercept,pf,θ)
+  if !iip
+    dy = nothing
+  else
+    dyprototype === nothing && error("dyprototype needs to be known for using inplace functions.")
+    if m===nothing
+      # default, diagonal noise
+      dy = similar(dyprototype)
+      isscalar = false
+    else
+      if m==1
+        # scalar noise case
+        dy = similar(dyprototype, length(dyprototype))
+        isscalar = true
+      else
+        # non-diagonal noise
+        dy = similar(dyprototype, length(dyprototype,m))
+        isscalar = false
+      end
+    end
+  end
+
+  if m===nothing
+    isscalar = false
+  else
+    isscalar = (m==1)
+  end
+
+  Regression{typeof(sdekernel),typeof(paramjac),typeof(intercept),typeof(pf),
+    typeof(θ),typeof(dy),iip}(sdekernel,
+    paramjac,intercept,pf,θ,dy,isscalar)
+end
+
+function Regression(sdekernel;kwargs...)
+  iip=DiffEqBase.isinplace(sdekernel.g,4)
+  Regression{iip}(sdekernel;kwargs...)
 end
 
 
-mutable struct Regression!{kernelType,pJType,ifuncType,phiType,uType,pfType,θType}
+mutable struct Regression!{kernelType,pJType,ifuncType,phiType,uType,pfType,θType,duType,inplace} <: AbstractRegression{inplace}
   k::kernelType
   fjac!::pJType
   ϕ0func!::ifuncType
@@ -64,11 +105,14 @@ mutable struct Regression!{kernelType,pJType,ifuncType,phiType,uType,pfType,θTy
   y2::uType
   pf::pfType
   θ::θType
+  dy::duType
+  isscalar::Bool
 end
 
-function Regression!(sdekernel::Union{SDEKernel,SDEProblem}, yprototype;
-      paramjac_prototype=nothing, paramjac=nothing, intercept=nothing,
-      θ=sdekernel.p)
+function Regression!{iip}(sdekernel::Union{SDEKernel,SDEProblem}, yprototype;
+      paramjac_prototype=nothing, paramjac=nothing, intercept=nothing, isdiagonal=true,
+      θ=sdekernel.p,
+      dyprototype=yprototype, m=length(yprototype)) where iip
 
   y = similar(yprototype)
   y2 = similar(y)
@@ -81,11 +125,41 @@ function Regression!(sdekernel::Union{SDEKernel,SDEProblem}, yprototype;
   end
 
   if paramjac === nothing
-    pf = ParamJacobianWrapper(sdekernel.f,first(sdekernel.trange),y)
+    if iip
+      pf = ParamJacobianWrapper2(sdekernel.f,first(sdekernel.trange),y)
+    else
+      pf = ParamJacobianWrapper(sdekernel.f,first(sdekernel.trange),y)
+    end
   else
     pf = nothing
   end
 
+  if !iip
+    dy = nothing
+  else
+    dyprototype === nothing && error("dyprototype needs to be known for using inplace functions.")
+    if m==length(yprototype)
+      # default, diagonal noise
+      dy = similar(dyprototype)
+    else
+      if m==1
+        # scalar noise case
+        dy = similar(dyprototype, length(dyprototype))
+      else
+        # non-diagonal noise
+        dy = similar(dyprototype, length(dyprototype,m))
+      end
+    end
+  end
+
+  isscalar = (m==1 && length(yprototype)!=1)
+
   Regression!{typeof(sdekernel),typeof(paramjac),typeof(intercept),typeof(ϕ),
-    typeof(y),typeof(pf),typeof(θ)}(sdekernel,paramjac,intercept,ϕ,ϕ0,y,y2,pf,θ)
+    typeof(y),typeof(pf),typeof(θ),typeof(dy),iip}(sdekernel,paramjac,intercept,
+    ϕ,ϕ0,y,y2,pf,θ,dy,isscalar)
+end
+
+function Regression!(sdekernel,yprototype;kwargs...)
+  iip=DiffEqBase.isinplace(sdekernel.g,4)
+  Regression!{iip}(sdekernel,yprototype;kwargs...)
 end

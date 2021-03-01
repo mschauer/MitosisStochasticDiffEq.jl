@@ -12,6 +12,8 @@ using Statistics
 using StaticArrays
 using ForwardDiff
 
+import SciMLBase.isinplace
+
 include("types.jl")
 include("sample.jl")
 include("filter.jl")
