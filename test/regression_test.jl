@@ -387,6 +387,8 @@ end
 
   @test G1.F ≈ G2.F rtol=1e-10
   @test G1.Γ ≈ G2.Γ rtol=1e-10
+  @test G1.F ≈ G3.F rtol=1e-10
+  @test G1.Γ ≈ G3.Γ rtol=1e-10
   @test G2.F ≈ G3.F rtol=1e-10
   @test G2.Γ ≈ G3.Γ rtol=1e-10
 
