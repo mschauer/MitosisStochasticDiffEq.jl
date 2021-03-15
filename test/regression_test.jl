@@ -48,6 +48,8 @@ end
   K = 1000
 
   # define SDE function
+  f(du,u,p,t) = du .= p[1]*u .+ p[2]
+  g(du,u,p,t) = du .= p[3]
   foop(u,p,t) = p[1]*u .+ p[2]
   goop(u,p,t) = p[3]
 
@@ -88,33 +90,53 @@ end
 
   # define SDE kernel
   sdekernel = MitosisStochasticDiffEq.SDEKernel(foop,goop,trange,par)
+  sdekernel2 = MitosisStochasticDiffEq.SDEKernel(f,g,trange,par)
 
   # sample using MitosisStochasticDiffEq and EM default
   Random.seed!(100)
   sol, solend = MitosisStochasticDiffEq.sample(sdekernel, u0, save_noise=true)
+  Random.seed!(100)
+  # for later AD check
+  sol2, solend2 = MitosisStochasticDiffEq.sample(sdekernel, [u0], save_noise=true)
   @show solend
   @show length(sol)
 
   R = MitosisStochasticDiffEq.Regression!(sdekernel,yprototype,
-     paramjac_prototype=ϕprototype,paramjac=f_jac,intercept=ϕ0)
+      paramjac_prototype=ϕprototype,paramjac=f_jac,intercept=ϕ0)
   R2 = MitosisStochasticDiffEq.Regression(sdekernel,paramjac=f_jacoop,intercept=ϕ0oop)
+  R3 = MitosisStochasticDiffEq.Regression!(sdekernel2,yprototype,
+      paramjac_prototype=ϕprototype,paramjac=f_jac,intercept=ϕ0)
+  R4 = MitosisStochasticDiffEq.Regression(sdekernel2,
+      dyprototype=yprototype,paramjac=f_jacoop,intercept=ϕ0oop)
 
   G = MitosisStochasticDiffEq.conjugate(R, sol, 0.1*I(2))
   G2 = MitosisStochasticDiffEq.conjugate(R2, sol, 0.1*I(2))
-  G3 = conjugate_posterior(sol, 0.1*I(2))
+  G3 = MitosisStochasticDiffEq.conjugate(R3, sol, 0.1*I(2))
+  G4 = MitosisStochasticDiffEq.conjugate(R4, sol, 0.1*I(2))
+  Gtest = conjugate_posterior(sol, 0.1*I(2))
 
-  @testset "iip tests" begin
-    @test G ≈ G3 rtol=1e-10
-    @test G.F ≈ G3.F rtol=1e-10
-    @test G.Γ ≈ G3.Γ rtol=1e-10
+  @testset "Regression! oop tests" begin
+    @test G ≈ Gtest rtol=1e-10
+    @test G.F ≈ Gtest.F rtol=1e-10
+    @test G.Γ ≈ Gtest.Γ rtol=1e-10
   end
-  @testset "oop tests" begin
-    @test G2 ≈ G3 rtol=1e-10
-    @test G2.F ≈ G3.F rtol=1e-10
-    @test G2.Γ ≈ G3.Γ rtol=1e-10
+  @testset "Regression oop tests" begin
+    @test G2 ≈ Gtest rtol=1e-10
+    @test G2.F ≈ Gtest.F rtol=1e-10
+    @test G2.Γ ≈ Gtest.Γ rtol=1e-10
   end
-  @info G3.F
-  @info G3.Γ
+  @testset "Regression! iip tests" begin
+    @test G3 ≈ Gtest rtol=1e-10
+    @test G3.F ≈ Gtest.F rtol=1e-10
+    @test G3.Γ ≈ Gtest.Γ rtol=1e-10
+  end
+  @testset "Regression iip tests" begin
+    @test G4 ≈ Gtest rtol=1e-10
+    @test G4.F ≈ Gtest.F rtol=1e-10
+    @test G4.Γ ≈ Gtest.Γ rtol=1e-10
+  end
+  @info Gtest.F
+  @info Gtest.Γ
 
   # test samples
   mu = G.F
@@ -155,9 +177,11 @@ end
   @testset "AD tests" begin
     using ForwardDiff
     pf = MitosisStochasticDiffEq.ParamJacobianWrapper(sdekernel.f,first(sdekernel.trange),[u0])
+    pf2 = MitosisStochasticDiffEq.ParamJacobianWrapper2(sdekernel2.f,first(sdekernel2.trange),[u0])
     f_jac(ϕprototype,[u0],par,first(sdekernel.trange))
     @test f_jacoop(u0,par,first(sdekernel.trange)) == ϕprototype
     @test ForwardDiff.jacobian(pf, par[1:2]) == ϕprototype
+    @test ForwardDiff.jacobian(pf2, par[1:2]) == ϕprototype
 
     # check θ function
     RAD = MitosisStochasticDiffEq.Regression!(sdekernel,yprototype,
@@ -168,8 +192,22 @@ end
     #check with intercept = nothing
     RAD = MitosisStochasticDiffEq.Regression!(sdekernel,yprototype,
       paramjac_prototype=ϕprototype,θ=par[1:2])
+    RAD2 = MitosisStochasticDiffEq.Regression(sdekernel,θ=par[1:2],yprototype=yprototype)
     GAD = MitosisStochasticDiffEq.conjugate(RAD, sol, 0.1*I(2))
+    GAD2 = MitosisStochasticDiffEq.conjugate(RAD2, sol2, 0.1*I(2))
     @test G ≈ GAD rtol=1e-10
+    @test G ≈ GAD2 rtol=1e-10
+
+    #check AD for inplace function
+    RAD3 = MitosisStochasticDiffEq.Regression!(sdekernel2,yprototype,
+        paramjac_prototype=ϕprototype,θ=par[1:2])
+    RAD4 = MitosisStochasticDiffEq.Regression(sdekernel2,
+        dyprototype=yprototype,yprototype=yprototype,θ=par[1:2])
+    GAD3 = MitosisStochasticDiffEq.conjugate(RAD3, sol, 0.1*I(2))
+    GAD4 = MitosisStochasticDiffEq.conjugate(RAD4, sol2, 0.1*I(2))
+
+    @test G ≈ GAD3 rtol=1e-10
+    @test G ≈ GAD4 rtol=1e-10
   end
 end
 
@@ -241,4 +279,122 @@ end
   end
   @info G3.F
   @info G3.Γ
+end
+
+
+@testset "scalar Brusselator" begin
+  # define SDE function for Brusselator, test inplace version and AD
+  using DiffEqNoiseProcess
+  function brusselator_f!(du,u,p,t)
+    @inbounds begin
+      du[1] = (p[1]-1)*u[1]+p[1]*u[1]^2+(u[1]+1)^2*u[2]
+      du[2] = -p[1]*u[1]-p[1]*u[1]^2-(u[1]+1)^2*u[2]
+    end
+    nothing
+  end
+
+  function brusselator_f(u,p,t)
+    dx1 = (p[1]-1)*u[1]+p[1]*u[1]^2+(u[1]+1)^2*u[2]
+    dx2 = -p[1]*u[1]-p[1]*u[1]^2-(u[1]+1)^2*u[2]
+
+    return [dx1,dx2]
+  end
+
+  function scalar_noise!(du,u,p,t)
+    @inbounds begin
+      du[1] = p[2]*u[1]*(1+u[1])
+      du[2] = -p[2]*u[1]*(1+u[1])
+     end
+     nothing
+  end
+
+  function scalar_noise(u,p,t)
+    dx1 = p[2]*u[1]*(1+u[1])
+    dx2 = -p[2]*u[1]*(1+u[1])
+
+    return [dx1,dx2]
+  end
+
+  # matrix form
+  function scalar_noise_matrix(u,p,t)
+    dx1 = p[2]*u[1]*(1+u[1])
+    dx2 = -p[2]*u[1]*(1+u[1])
+
+    reshape([ dx1, dx2],2,1)
+  end
+
+  # paramjac
+  function f_jac!(J,u,p,t)
+    J[1,1] = u[1]+u[1]^2
+    J[2,1] = -(u[1]+u[1]^2)
+    nothing
+  end
+
+  function f_jac(u,p,t)
+    [ u[1]+u[1]^2
+      -(u[1]+u[1]^2)]
+  end
+
+  # intercept
+  function ϕ0!(du,u,p,t)
+    du[1] = -u[1]+(u[1]+1)^2*u[2]
+    du[2] = -(u[1]+1)^2*u[2]
+  end
+
+  function ϕ0(u,p,t)
+    dx1 = -u[1]+(u[1]+1)^2*u[2]
+    dx2 = -(u[1]+1)^2*u[2]
+    [dx1, dx2]
+  end
+
+  yprototype = zeros(2)
+  ϕprototype = zeros((2,1))
+
+  # fix seeds
+  seed = 100
+  Random.seed!(seed)
+  W = WienerProcess(0.0,0.0,0.0)
+
+  u0 = [-0.1,0.0]
+  tspan = (0.0,100.0)
+  p = [1.9,0.1] # p[1] is only in the drift
+
+  prob = SDEProblem(brusselator_f!,scalar_noise!,u0,tspan,p,noise=W)
+  sol = solve(prob, EM(), dt = 0.01)
+
+  @test size(scalar_noise_matrix(sol.u[1], p, 0.0)) == (2,1)
+
+  testvec = randn(2)
+  o1 = MitosisStochasticDiffEq.outer_(scalar_noise_matrix(testvec, p, 0.0))
+  o2 = MitosisStochasticDiffEq.outer_(reshape(scalar_noise(testvec,p,0.0),2,1))
+  @test o1==o2
+
+  # oop regression with matrix form for diffusion to test
+  sdekernel1 = MitosisStochasticDiffEq.SDEKernel(brusselator_f,scalar_noise_matrix,tspan,p)
+  R1 = MitosisStochasticDiffEq.Regression(sdekernel1,paramjac=f_jac,intercept=ϕ0)
+  # oop regression with vector form as in StochasticDiffEq
+  sdekernel2 = MitosisStochasticDiffEq.SDEKernel(brusselator_f,scalar_noise,tspan,p)
+  R2 = MitosisStochasticDiffEq.Regression(sdekernel2,paramjac=f_jac,intercept=ϕ0, m=1)
+  # inplace regression with vector form as in StochasticDiffEq
+  sdekernel3 = MitosisStochasticDiffEq.SDEKernel(brusselator_f!,scalar_noise!,tspan,p)
+  R3 = MitosisStochasticDiffEq.Regression!(sdekernel3,yprototype,
+     paramjac_prototype=ϕprototype,paramjac=f_jac!,intercept=ϕ0!,m=1)
+
+
+  G1 = MitosisStochasticDiffEq.conjugate(R1, sol, 0.1*I(1))
+  G2 = MitosisStochasticDiffEq.conjugate(R2, sol, 0.1*I(1))
+  G3 = MitosisStochasticDiffEq.conjugate(R3, sol, 0.1*I(1))
+
+  @test G1.F ≈ G2.F rtol=1e-10
+  @test G1.Γ ≈ G2.Γ rtol=1e-10
+  @test G1.F ≈ G3.F rtol=1e-10
+  @test G1.Γ ≈ G3.Γ rtol=1e-10
+  @test G2.F ≈ G3.F rtol=1e-10
+  @test G2.Γ ≈ G3.Γ rtol=1e-10
+
+  # Estimate
+  p̂ = mean(G1)
+  se = sqrt.(diag(cov(G1)))
+  display(map((p̂, se, p) -> "$(round(p̂, digits=3)) ± $(round(se, digits=3)) (true: $p)", p̂, se, p))
+  @test p̂[1] ≈ p[1] rtol=se[1]
 end
