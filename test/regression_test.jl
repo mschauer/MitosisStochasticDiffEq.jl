@@ -174,7 +174,7 @@ end
 # savefig(pl, "regression.png")
 
   # test with ForwardDiff
-  @testset "AD tests" begin
+  @testset "AD for Jacobian tests" begin
     using ForwardDiff
     pf = MitosisStochasticDiffEq.ParamJacobianWrapper(sdekernel.f,first(sdekernel.trange),[u0])
     pf2 = MitosisStochasticDiffEq.ParamJacobianWrapper2(sdekernel2.f,first(sdekernel2.trange),[u0])
@@ -284,7 +284,7 @@ end
 
 @testset "scalar Brusselator" begin
   # define SDE function for Brusselator, test inplace version and AD
-  using DiffEqNoiseProcess
+  using DiffEqNoiseProcess, Zygote, DiffEqSensitivity
   function brusselator_f!(du,u,p,t)
     @inbounds begin
       du[1] = (p[1]-1)*u[1]+p[1]*u[1]^2+(u[1]+1)^2*u[2]
@@ -353,7 +353,7 @@ end
   # fix seeds
   seed = 100
   Random.seed!(seed)
-  W = WienerProcess(0.0,0.0,0.0)
+  W = WienerProcess(0.0,0.0,nothing)
 
   u0 = [-0.1,0.0]
   tspan = (0.0,100.0)
@@ -397,4 +397,28 @@ end
   se = sqrt.(diag(cov(G1)))
   display(map((p̂, se, p) -> "$(round(p̂, digits=3)) ± $(round(se, digits=3)) (true: $p)", p̂, se, p))
   @test p̂[1] ≈ p[1] rtol=se[1]
+
+  # use NoiseWrapper to reproduce same trajectory
+  # Wrep = NoiseWrapper(sol.W)
+  ts = sol.t
+  gaussian = Mitosis.Gaussian{(:F,:Γ)}(zeros(eltype(Matrix(0.1*I(1))), size(Matrix(0.1*I(1)), 1)), Matrix(0.1*I(1)))
+
+  function loss(p,u0,R)
+    _prob = remake(prob,p = p, u0 = u0, noise=W)
+    _sol = (solve(_prob, EM(), dt = 0.01)).u
+    G = MitosisStochasticDiffEq.conjugate(R, _sol, gaussian, ts)
+    p̂ = mean(G)[1]
+    se = sqrt.(diag(cov(G)))[1]
+    se + (p̂-p[1])^2
+  end
+  @test loss(p,u0,R1) != zero(loss(p,u0,R1))
+  @test loss(p,u0,R2) != zero(loss(p,u0,R2))
+  @test loss(p,u0,R3) != zero(loss(p,u0,R3))
+
+  @test loss(p,u0,R1) ≈ loss(p,u0,R2) atol=1e-3
+  @test loss(p,u0,R2) ≈ loss(p,u0,R3) atol=1e-3
+
+  du01,dp1 = Zygote.gradient((u0,p)->loss(p,u0,R1),u0,p)
+  @test du01 != zero(du01)
+  @test dp1 != zero(dp1)
 end

@@ -1,14 +1,21 @@
-function conjugate(r::Union{Regression,Regression!}, Y, Γ0::AbstractArray)
+function conjugate(r::Union{Regression,Regression!}, Y, Γ0::AbstractArray, ts)
   Γ0_ = Matrix(Γ0)
-  conjugate(r, Y, Mitosis.Gaussian{(:F,:Γ)}(zeros(eltype(Γ0_), size(Γ0_, 1)), Γ0_))
+  conjugate(r, Y, Mitosis.Gaussian{(:F,:Γ)}(zeros(eltype(Γ0_), size(Γ0_, 1)), Γ0_), ts)
 end
 
-function conjugate(r::Regression, Y, prior::Gaussian)
+function conjugate(r::Union{Regression,Regression!}, Y::RODESolution, Γ0::AbstractArray)
+  Γ0_ = Matrix(Γ0)
+  Y_ = Y.u
+  ts = Y.t
+  conjugate(r, Y_, Mitosis.Gaussian{(:F,:Γ)}(zeros(eltype(Γ0_), size(Γ0_, 1)), Γ0_), ts)
+end
+
+function conjugate(r::Regression, Y, prior::Gaussian, ts)
   @unpack k, fjac, ϕ0func, θ, dy, isscalar = r
   @unpack g, p = k
 
-  t = Y.t[1]
-  y = Y.u[1]
+  t = ts[1]
+  y = Y[1]
 
   ϕ = calc_J(y, r, θ, t)
   μ = copy(prior.F)
@@ -27,8 +34,8 @@ function conjugate(r::Regression, Y, prior::Gaussian)
       Gϕ = pinv(outer_(reshape(dy, :, 1)))*ϕ
     end
     zi = ϕ'*Gϕ
-    t2 = Y.t[i + 1]
-    y2 = Y.u[i + 1]
+    t2 = ts[i + 1]
+    y2 = Y[i + 1]
 
     ds = t2 - t
 
@@ -48,12 +55,12 @@ function conjugate(r::Regression, Y, prior::Gaussian)
   return Mitosis.Gaussian{(:F,:Γ)}(μ, Γ)
 end
 
-function conjugate(r::Regression!, Y, prior::Gaussian)
+function conjugate(r::Regression!, Y, prior::Gaussian, ts)
   @unpack k, fjac!, ϕ0func!, ϕ, ϕ0, y, y2, θ, dy, isscalar = r
   @unpack g, p = k
 
-  t = Y.t[1]
-  copyto!(y, Y.u[1])
+  t = ts[1]
+  copyto!(y, Y[1])
 
   calc_J!(ϕ, r, θ, t)
   μ = prior.F
@@ -72,8 +79,8 @@ function conjugate(r::Regression!, Y, prior::Gaussian)
       Gϕ = pinv(outer_(reshape(dy, :, 1)))*ϕ
     end
     zi = ϕ'*Gϕ
-    t2 = Y.t[i + 1]
-    copyto!(y2, Y.u[i + 1])
+    t2 = ts[i + 1]
+    copyto!(y2, Y[i + 1])
 
     ds = t2 - t
 
