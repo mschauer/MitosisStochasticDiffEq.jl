@@ -26,7 +26,7 @@ using LinearAlgebra
   c = 0.0
   ν = 0.0
   P = 10.0
-  myvalues = [c, ν, P];
+  myvalues = [c, ν, P]
   NT = NamedTuple{mynames}(myvalues)
 
   # covariance filter
@@ -36,15 +36,15 @@ using LinearAlgebra
   # information filter
   H = inv(P)
   F = H*ν
-  myvalues2 = [c, F, H];
+  myvalues2 = [c, F, H]
   NT2 = NamedTuple{mynames}(myvalues2)
-  message2, solend2 = MitosisStochasticDiffEq.backwardfilter(kernel, NT2, F=MitosisStochasticDiffEq.InformationFilter())
+  message2, solend2 = MitosisStochasticDiffEq.backwardfilter(kernel, NT2, filter=MitosisStochasticDiffEq.InformationFilter())
 
   @test !isapprox(solend, solend2, rtol=1e-1)
   invH = inv(solend2[2])
   invHF = invH*solend2[1]
-  @test isapprox(solend[1], invHF, rtol=1e-10)
-  @test isapprox(solend[2], invH, rtol=1e-10)
+  @test isapprox(solend[1], invHF, rtol=1e-3)
+  @test isapprox(solend[2], invH, rtol=1e-3)
   @test isapprox(solend[3], solend2[3], rtol=1e-10)
 
 end

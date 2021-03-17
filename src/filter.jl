@@ -6,19 +6,19 @@ mypack(a::SArray,b::SArray,c::Number) = ArrayPartition(a,b,@SVector[c])
 mypack(a::SArray,b::SArray,c::SArray) = ArrayPartition(a,b,c)
 
 function backwardfilter(k::SDEKernel, p::WGaussian{(:μ, :Σ, :c)};
-    F=CovarianceFilter(), alg=Euler(),
+    filter=CovarianceFilter(), alg=Euler(),
     inplace=false, apply_timechange=false, abstol=1e-6, reltol=1e-3)
 
-  message, solend = backwardfilter(F, k::SDEKernel, NamedTuple{(:logscale, :μ, :Σ)}((p.c, p.μ, p.Σ));
+  message, solend = backwardfilter(filter, k::SDEKernel, NamedTuple{(:logscale, :μ, :Σ)}((p.c, p.μ, p.Σ));
     alg=alg, inplace=inplace, apply_timechange=apply_timechange, abstol=abstol, reltol=reltol)
 
   return message, WGaussian{(:μ, :Σ, :c)}(myunpack(solend)...)
 end
 
 function backwardfilter(k::SDEKernel, (c, ν, P)::NamedTuple{(:logscale, :μ, :Σ)};
-    F=CovarianceFilter(), alg=Euler(), inplace=false, apply_timechange=false, abstol=1e-6,reltol=1e-3)
+    filter=CovarianceFilter(), alg=Euler(), inplace=false, apply_timechange=false, abstol=1e-6,reltol=1e-3)
 
-  return _backwardfilter(F, k::SDEKernel, (c, ν, P);
+  return _backwardfilter(filter, k::SDEKernel, (c, ν, P);
     alg=Euler(), inplace=inplace, apply_timechange=apply_timechange, abstol=abstol,reltol=reltol)
 end
 
@@ -75,14 +75,14 @@ function CovarianceFilterODE(du, u, p, t)
   return nothing
 end
 
-function _backwardfilter(F::CovarianceFilter, k::SDEKernel, p::WGaussian{(:μ, :Σ, :c)}; alg=Euler(),
+function _backwardfilter(filter::CovarianceFilter, k::SDEKernel, p::WGaussian{(:μ, :Σ, :c)}; alg=Euler(),
     inplace=false, apply_timechange=false, abstol=1e-6, reltol=1e-3)
-  message, solend = _backwardfilter(F::CovarianceFilter, k::SDEKernel, NamedTuple{(:logscale, :μ, :Σ)}((p.c, p.μ, p.Σ));
+  message, solend = _backwardfilter(filter::CovarianceFilter, k::SDEKernel, NamedTuple{(:logscale, :μ, :Σ)}((p.c, p.μ, p.Σ));
     alg=alg, inplace=inplace, apply_timechange=apply_timechange, abstol=abstol, reltol=reltol)
   return message, WGaussian{(:μ, :Σ, :c)}(myunpack(solend)...)
 end
 
-function _backwardfilter(F::CovarianceFilter,k::SDEKernel, (c, ν, P);
+function _backwardfilter(filter::CovarianceFilter,k::SDEKernel, (c, ν, P);
     alg=Euler(), inplace=false, apply_timechange=false, abstol=1e-6,reltol=1e-3)
   @unpack trange, p = k
 
@@ -108,11 +108,11 @@ function _backwardfilter(F::CovarianceFilter,k::SDEKernel, (c, ν, P);
 end
 
 # information filter ODE Eqs.
-compute_dH(H,B,σtil) = -B'*H - H*B - H*outer_(σtil)*H
+compute_dH(H,B,σtil) = -B'*H - H*B + H*outer_(σtil)*H
 compute_dF(F,H,B,σtil,β) = -B'*F + H*outer_(σtil)*F + H*β
 
 function compute_dH!(dH,H,B,σtil)
-  dH .= -B'*H - H*B - H*outer_(σtil)*H
+  dH .= -B'*H - H*B + H*outer_(σtil)*H
   return nothing
 end
 
@@ -150,19 +150,19 @@ function InformationFilterODE(du, u, p, t)
   return nothing
 end
 
-function _backwardfilter(F::InformationFilter, k::SDEKernel, p::WGaussian{(:μ, :Σ, :c)}; alg=Euler(),
+function _backwardfilter(filter::InformationFilter, k::SDEKernel, p::WGaussian{(:μ, :Σ, :c)}; alg=Euler(),
     inplace=false, apply_timechange=false, abstol=1e-6, reltol=1e-3)
-  message, solend = _backwardfilter(F::InformationFilter, k::SDEKernel, NamedTuple{(:logscale, :μ, :Σ)}((p.c, p.μ, p.Σ));
+  message, solend = _backwardfilter(filter::InformationFilter, k::SDEKernel, NamedTuple{(:logscale, :μ, :Σ)}((p.c, p.μ, p.Σ));
     alg=alg, inplace=inplace, apply_timechange=apply_timechange, abstol=abstol, reltol=reltol)
   return message, WGaussian{(:μ, :Σ, :c)}(myunpack(solend)...)
 end
 
-function _backwardfilter(F::InformationFilter,k::SDEKernel, (c, ν, P);
+function _backwardfilter(filter::InformationFilter,k::SDEKernel, (c, F, H);
     alg=Euler(), inplace=false, apply_timechange=false, abstol=1e-6,reltol=1e-3)
   @unpack trange, p = k
 
-  # Initialize OD
-  u0 = mypack(ν, P, c)
+  # Initialize ODE
+  u0 = mypack(F, H, c)
   prob = ODEProblem{inplace}(InformationFilterODE, u0, reverse(get_tspan(trange)), p)
 
   if !apply_timechange
