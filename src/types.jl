@@ -5,6 +5,12 @@ struct SDEKernel{fType,gType,tType,pType}
   p::pType
 end
 
+abstract type AbstractFilteringAlgorithm end
+
+struct CovarianceFilter <: AbstractFilteringAlgorithm end
+struct InformationFilter <: AbstractFilteringAlgorithm end
+struct LyapunovFilter <: AbstractFilteringAlgorithm end
+
 struct Message{kernelType,solType,sol2Type,tType}
   ktilde::kernelType
   sol::solType

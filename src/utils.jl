@@ -9,3 +9,21 @@ get_tspan(ts) = (first(ts),last(ts))
 timechange(s, tstart=first(s), tend=last(s)) = tstart .+ (s .- tstart).*(2.0 .- (s .- tstart)/(tend-tstart))
 
 isinplace(R::AbstractRegression{inplace}) where {inplace} = inplace
+
+function convert_message(message, F1::InformationFilter, F2::CovarianceFilter)
+  @unpack ktilde, ts, soldis, sol = message
+  # P = inv(H)
+
+  # ν = inv(H)F
+
+  return Message(ktilde, ts, soldis, nothing)
+end
+
+function convert_message(message, F1::CovarianceFilter, F2::InformationFilter)
+  @unpack ktilde, ts, soldis, sol = message
+  # H = inv(P)
+
+  # F = Hν
+
+  return Message(ktilde, ts, soldis, nothing)
+end
