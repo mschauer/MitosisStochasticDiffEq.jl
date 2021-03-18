@@ -42,9 +42,6 @@ end
   dt = 0.02
   trange = tstart:dt:tend
 
-  # intial condition
-  u0 = 1.1
-
   # set of linear parameters Eq.~(2.2)
   B, β, σ̃ = -0.1, 0.2, 1.3
   plin = [B, β, σ̃]
@@ -148,9 +145,6 @@ end
   dt = 0.02
   trange = tstart:dt:tend
 
-  # intial condition
-  u0 = 1.1
-
   # set of linear parameters Eq.~(2.2)
   B, β, σ̃ = -0.1, 0.2, 1.3
   plin = [B, β, σ̃]
@@ -187,9 +181,6 @@ end
   tend = 1.0
   dt = 0.05 # more coarse grained dt
   trange = tstart:dt:tend
-
-  # intial condition
-  u0 = 1.1
 
   # set of linear parameters Eq.~(2.2)
   B, β, σ̃ = -0.1, 0.2, 1.3

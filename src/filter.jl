@@ -102,6 +102,7 @@ end
 
 # information filter ODE Eqs.
 compute_dH(H,B,σtil) = -B'*H - H*B + H*outer_(σtil)*H
+compute_dF(F,H::AbstractArray,B,σtil,β::Number) = -B'*F + H*outer_(σtil)*F + H*fill(β,size(H,1))
 compute_dF(F,H,B,σtil,β) = -B'*F + H*outer_(σtil)*F + H*β
 
 function compute_dH!(dH,H,B,σtil)
@@ -111,6 +112,11 @@ end
 
 function compute_dF!(dF,F,H,B,σtil,β)
   dF .= -B'*F + H*outer_(σtil)*F + H*β
+  return nothing
+end
+
+function compute_dF!(dF,F,H,B,σtil,β::Number)
+  dF .= -B'*F + H*outer_(σtil)*F + H*fill(β,size(H,1))
   return nothing
 end
 
@@ -168,35 +174,35 @@ function _backwardfilter(filter::InformationFilter,k::SDEKernel, (c, F, H);
 end
 
 
-Φ(t,T,B) = exp(-(T-t)*B)
+Φfunc(t,T,B) = exp(-(T-t)*B)
 function solP(t,T,B,PT,Σ)
-  Φ = Φ(t,T,B)
+  Φ = Φfunc(t,T,B)
   Φ*(Σ+PT)*Φ'-Σ
 end
 
 function solν(t,T,B,β,νT)
   #TODO
   # β time-dependent
-  νT*Φ(t,T,B) + exp(B*t)*β*inv(-B)*Φ(-t,-T,B)
+  νT*Φfunc(t,T,-B) + Φfunc(t,T,-B)*β*inv(B)*(Φfunc(t,T,B)-1)
 end
 
-function solc(t,T,B)
-  -tr(B)*(T-t)
+function solc(t,T,B,cT)
+  cT-tr(B)*(T-t)
 end
 
 function (G::solLyapunov)(t)
-  @unpack ktilde, Σ, νT, PT = G
+  @unpack ktilde, Σ, νT, PT, cT = G
   @unpack trange, p = ktilde
   B, β, σtil = p
   T = last(trange)
 
   ν = solν(t,T,B,β,νT)
   P = solP(t,T,B,PT,Σ)
-  c = solc(t,T,B)
+  c = solc(t,T,B,cT)
   return mypack(ν, P, c)
 end
 
-function _backwardfilter(filter::LyapunovFilter,k::SDEKernel, (c, ν, P); apply_timechange=false)
+function _backwardfilter(filter::LyapunovFilter,k::SDEKernel, (c, ν, P); apply_timechange=false, kwargs...)
   @unpack trange, p = k
 
   # solve Lyapunov equation
@@ -210,10 +216,10 @@ function _backwardfilter(filter::LyapunovFilter,k::SDEKernel, (c, ν, P); apply_
     _ts = timechange(trange)
   end
 
-  sol = solLyapunov(k, Σ, νT, PT)
-  soldis = sol.(_ts)
+  sol = solLyapunov(k, Σ, ν, P, c)
+  soldis = hcat(sol.(_ts)...)
 
-  Message(k, _ts, soldis, sol)
+  message = Message(k, sol, soldis, _ts)
 
-  return message, soldis[end]
+  return message, soldis[:,1]
 end

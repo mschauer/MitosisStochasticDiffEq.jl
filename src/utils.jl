@@ -3,6 +3,7 @@ outer_(x::Number) = x*x'*I
 outer_(x::AbstractVector) = Diagonal(x.*x)
 
 construct_a(σ::Number,P) = outer_(σ)*similar_type(P, Size(size(P,1),size(P,1)))(I)
+construct_a(σ::Number,P::Number) = σ*σ'
 construct_a(σ,P) = Matrix(outer_(σ))
 
 get_dt(ts::AbstractRange) = step(ts)

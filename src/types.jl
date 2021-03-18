@@ -11,11 +11,12 @@ struct CovarianceFilter <: AbstractFilteringAlgorithm end
 struct InformationFilter <: AbstractFilteringAlgorithm end
 struct LyapunovFilter <: AbstractFilteringAlgorithm end
 
-struct solLyapunov{kernelType,ΣType,νTType,PTType}
+struct solLyapunov{kernelType,ΣType,νTType,PTType,CTType}
   ktilde::kernelType
   Σ::ΣType
   νT::νTType
   PT::PTType
+  cT::CTType
 end
 
 struct Message{kernelType,solType,sol2Type,tType}
