@@ -9,16 +9,16 @@ function backwardfilter(k::SDEKernel, p::WGaussian{(:μ, :Σ, :c)};
     filter=CovarianceFilter(), alg=Euler(),
     inplace=false, apply_timechange=false, abstol=1e-6, reltol=1e-3)
 
-  message, solend = backwardfilter(filter, k::SDEKernel, NamedTuple{(:logscale, :μ, :Σ)}((p.c, p.μ, p.Σ));
+  message, solend = _backwardfilter(filter, k::SDEKernel, (p.c, p.μ, p.Σ);
     alg=alg, inplace=inplace, apply_timechange=apply_timechange, abstol=abstol, reltol=reltol)
 
   return message, WGaussian{(:μ, :Σ, :c)}(myunpack(solend)...)
 end
 
-function backwardfilter(k::SDEKernel, (c, ν, P)::NamedTuple{(:logscale, :μ, :Σ)};
+function backwardfilter(k::SDEKernel, (c, μ, Σ)::NamedTuple{(:logscale, :μ, :Σ)};
     filter=CovarianceFilter(), alg=Euler(), inplace=false, apply_timechange=false, abstol=1e-6,reltol=1e-3)
 
-  return _backwardfilter(filter, k::SDEKernel, (c, ν, P);
+  return _backwardfilter(filter, k::SDEKernel, (c, μ, Σ);
     alg=alg, inplace=inplace, apply_timechange=apply_timechange, abstol=abstol,reltol=reltol)
 end
 
@@ -73,13 +73,6 @@ function CovarianceFilterODE(du, u, p, t)
   du.x[3] .= tr(B)
 
   return nothing
-end
-
-function _backwardfilter(filter::CovarianceFilter, k::SDEKernel, p::WGaussian{(:μ, :Σ, :c)}; alg=Euler(),
-    inplace=false, apply_timechange=false, abstol=1e-6, reltol=1e-3)
-  message, solend = _backwardfilter(filter::CovarianceFilter, k::SDEKernel, NamedTuple{(:logscale, :μ, :Σ)}((p.c, p.μ, p.Σ));
-    alg=alg, inplace=inplace, apply_timechange=apply_timechange, abstol=abstol, reltol=reltol)
-  return message, WGaussian{(:μ, :Σ, :c)}(myunpack(solend)...)
 end
 
 function _backwardfilter(filter::CovarianceFilter,k::SDEKernel, (c, ν, P);
@@ -150,13 +143,6 @@ function InformationFilterODE(du, u, p, t)
   return nothing
 end
 
-function _backwardfilter(filter::InformationFilter, k::SDEKernel, p::WGaussian{(:μ, :Σ, :c)}; alg=Euler(),
-    inplace=false, apply_timechange=false, abstol=1e-6, reltol=1e-3)
-  message, solend = _backwardfilter(filter::InformationFilter, k::SDEKernel, NamedTuple{(:logscale, :μ, :Σ)}((p.c, p.μ, p.Σ));
-    alg=alg, inplace=inplace, apply_timechange=apply_timechange, abstol=abstol, reltol=reltol)
-  return message, WGaussian{(:μ, :Σ, :c)}(myunpack(solend)...)
-end
-
 function _backwardfilter(filter::InformationFilter,k::SDEKernel, (c, F, H);
     alg=Euler(), inplace=false, apply_timechange=false, abstol=1e-6,reltol=1e-3)
   @unpack trange, p = k
@@ -208,12 +194,6 @@ function (G::solLyapunov)(t)
   P = solP(t,T,B,PT,Σ)
   c = solc(t,T,B)
   return mypack(ν, P, c)
-end
-
-function _backwardfilter(filter::LyapunovFilter, k::SDEKernel, p::WGaussian{(:μ, :Σ, :c)};  apply_timechange=false)
-  message, solend = _backwardfilter(filter::LyapunovFilter, k::SDEKernel, NamedTuple{(:logscale, :μ, :Σ)}((p.c, p.μ, p.Σ));
-     apply_timechange=apply_timechange)
-  return message, WGaussian{(:μ, :Σ, :c)}(myunpack(solend)...)
 end
 
 function _backwardfilter(filter::LyapunovFilter,k::SDEKernel, (c, ν, P); apply_timechange=false)
