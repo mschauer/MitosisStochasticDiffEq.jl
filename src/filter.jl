@@ -180,3 +180,60 @@ function _backwardfilter(filter::InformationFilter,k::SDEKernel, (c, F, H);
 
   return message, sol[end]
 end
+
+
+Φ(t,T,B) = exp(-(T-t)*B)
+function solP(t,T,B,PT,Σ)
+  Φ = Φ(t,T,B)
+  Φ*(Σ+PT)*Φ'-Σ
+end
+
+function solν(t,T,B,β,νT)
+  #TODO
+  # β time-dependent
+  νT*Φ(t,T,B) + exp(B*t)*β*inv(-B)*Φ(-t,-T,B)
+end
+
+function solc(t,T,B)
+  -tr(B)*(T-t)
+end
+
+function (G::solLyapunov)(t)
+  @unpack ktilde, Σ, νT, PT = G
+  @unpack trange, p = ktilde
+  B, β, σtil = p
+  T = last(trange)
+
+  ν = solν(t,T,B,β,νT)
+  P = solP(t,T,B,PT,Σ)
+  c = solc(t,T,B)
+  return mypack(ν, P, c)
+end
+
+function _backwardfilter(filter::LyapunovFilter, k::SDEKernel, p::WGaussian{(:μ, :Σ, :c)};  apply_timechange=false)
+  message, solend = _backwardfilter(filter::LyapunovFilter, k::SDEKernel, NamedTuple{(:logscale, :μ, :Σ)}((p.c, p.μ, p.Σ));
+     apply_timechange=apply_timechange)
+  return message, WGaussian{(:μ, :Σ, :c)}(myunpack(solend)...)
+end
+
+function _backwardfilter(filter::LyapunovFilter,k::SDEKernel, (c, ν, P); apply_timechange=false)
+  @unpack trange, p = k
+
+  # solve Lyapunov equation
+  B, β, σtil = p
+  atil = construct_a(σtil,P)
+  Σ = lyap(B,atil)
+
+  if !apply_timechange
+    _ts = trange
+  else
+    _ts = timechange(trange)
+  end
+
+  sol = solLyapunov(k, Σ, νT, PT)
+  soldis = sol.(_ts)
+
+  Message(k, _ts, soldis, sol)
+
+  return message, soldis[end]
+end
