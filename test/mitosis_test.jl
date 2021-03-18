@@ -70,7 +70,8 @@ p̂ = Gaussian{(:μ, :Σ)}(mean(samples), cov(samples))
 
 
 
-m, p = Mitosis.backwardfilter(gkernel, y)
+m, l = Mitosis.backwardfilter(gkernel, y) # returns a "Leaf"
+p = l.y
 # initial values for ODE
 WG = WGaussian{(:μ,:Σ,:c)}(y_, 0.0, 0.0) #
 
