@@ -95,7 +95,7 @@ function _backwardfilter(filter::CovarianceFilter,k::SDEKernel, (c, ν, P);
   else
     sol = solve(prob, alg, dt=get_dt(k.trange), tstops=_ts, abstol=abstol, reltol=reltol)
   end
-  message = Message(sol, k, apply_timechange)
+  message = Message(sol, k, filter, apply_timechange)
 
   return message, sol[end]
 end
@@ -168,7 +168,7 @@ function _backwardfilter(filter::InformationFilter,k::SDEKernel, (c, F, H);
   else
     sol = solve(prob, alg, dt=get_dt(k.trange), tstops=_ts, abstol=abstol, reltol=reltol)
   end
-  message = Message(sol, k, apply_timechange)
+  message = Message(sol, k, filter, apply_timechange)
 
   return message, sol[end]
 end
@@ -219,7 +219,7 @@ function _backwardfilter(filter::LyapunovFilter,k::SDEKernel, (c, ν, P); apply_
   sol = solLyapunov(k, Σ, ν, P, c)
   soldis = hcat(sol.(_ts)...)
 
-  message = Message(k, sol, soldis, _ts)
+  message = Message(k, sol, soldis, _ts, filter)
 
   return message, soldis[:,1]
 end
