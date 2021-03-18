@@ -19,7 +19,7 @@ function backwardfilter(k::SDEKernel, (c, ν, P)::NamedTuple{(:logscale, :μ, :�
     filter=CovarianceFilter(), alg=Euler(), inplace=false, apply_timechange=false, abstol=1e-6,reltol=1e-3)
 
   return _backwardfilter(filter, k::SDEKernel, (c, ν, P);
-    alg=Euler(), inplace=inplace, apply_timechange=apply_timechange, abstol=abstol,reltol=reltol)
+    alg=alg, inplace=inplace, apply_timechange=apply_timechange, abstol=abstol,reltol=reltol)
 end
 
 # covariance filter ODE Eqs.
