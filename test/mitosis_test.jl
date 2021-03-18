@@ -109,7 +109,7 @@ end
 # try tilted forward
 
 m, p2 = Mitosis.backwardfilter(gkernel2, V)
-gᵒ = Mitosis.left′(BFFG(), gkernel, gkernel2, m, [u0])
+gᵒ = Mitosis.forward(BFFG(), gkernel, m, [u0])
 
 message, solend = MitosisStochasticDiffEq.backwardfilter(sdekerneltilde2, WG)
 @testset "Mitosis backward tilted" begin
