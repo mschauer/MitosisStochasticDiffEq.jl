@@ -5,21 +5,37 @@ struct SDEKernel{fType,gType,tType,pType}
   p::pType
 end
 
-struct Message{kernelType,solType,sol2Type,tType}
+abstract type AbstractFilteringAlgorithm end
+
+struct CovarianceFilter <: AbstractFilteringAlgorithm end
+struct InformationFilter <: AbstractFilteringAlgorithm end
+struct LyapunovFilter <: AbstractFilteringAlgorithm end
+
+struct solLyapunov{kernelType,ΣType,νTType,PTType,CTType}
+  ktilde::kernelType
+  Σ::ΣType
+  νT::νTType
+  PT::PTType
+  cT::CTType
+end
+
+struct Message{kernelType,solType,sol2Type,tType,filterType}
   ktilde::kernelType
   sol::solType
   soldis::sol2Type
   ts::tType
+  filter::filterType
 end
 
-function Message(sol, sdekernel::SDEKernel, apply_timechange=false)
+function Message(sol, sdekernel::SDEKernel, filter, apply_timechange=false)
   soldis = reverse(Array(sol), dims=2)
   if OrdinaryDiffEq.isadaptive(sol.alg) || apply_timechange
     ts = reverse(sol.t)
   else
     ts = sdekernel.trange
   end
-  Message{typeof(sdekernel),typeof(sol),typeof(soldis),typeof(ts)}(sdekernel,sol,soldis,ts)
+  Message{typeof(sdekernel),typeof(sol),typeof(soldis),typeof(ts),typeof(filter)}(sdekernel,
+    sol,soldis,ts,filter)
 end
 
 struct GuidingDriftCache{kernelType,messageType}

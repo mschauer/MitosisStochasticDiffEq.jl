@@ -24,7 +24,7 @@ mypack(a,c::Number) = [a; c]
 function (G::GuidingDriftCache)(du,u,p,t)
   @unpack k, message = G
   @unpack f, g = k
-  @unpack ktilde, ts, soldis, sol = message
+  @unpack ktilde, ts, soldis, sol, filter = message
 
   x = unpackx(u)
   dx = unpackx(du)
@@ -36,18 +36,22 @@ function (G::GuidingDriftCache)(du,u,p,t)
   if isapprox(t, ts[cur_time]; atol = 1000eps(typeof(t)), rtol = 1000eps(t))
     # non-interpolating version
     # take care for multivariate case here if P isa Matrix, ν  isa Vector, c isa Scalar
-    # ν, P, c
-    ν = @view soldis[1:d,cur_time]
-    P = reshape(@view(soldis[d+1:d+d*d,cur_time]), d, d)
+    # ν, P, c or F, H, c parametrization = μ,Σ,c
+    μ = @view soldis[1:d,cur_time]
+    Σ = reshape(@view(soldis[d+1:d+d*d,cur_time]), d, d)
   else
-    ν = @view sol(t)[1:d]
-    P = reshape(@view(sol(t)[d+1:d+d*d]), d, d)
+    μ = @view sol(t)[1:d]
+    Σ = reshape(@view(sol(t)[d+1:d+d*d]), d, d)
   end
 
-  r = P\(ν - x)
-
-  du[end] = dot(f(x,p,t) - ktilde.f(x,ktilde.p,t), r) - 0.5*tr((outer_(g(x,p,t)) - outer_(ktilde.g(x,ktilde.p,t)))*(inv(P) - outer_(r)))
-  dx[:] .= vec(f(x, p, t) + (outer_(g(x, p, t))*r)) # evolution guided by observations
+  if !(filter isa InformationFilter)
+    r = Σ\(μ - x)
+    du[end] = dot(f(x,p,t) - ktilde.f(x,ktilde.p,t), r) - 0.5*tr((outer_(g(x,p,t)) - outer_(ktilde.g(x,ktilde.p,t)))*(inv(Σ) - outer_(r)))
+    dx[:] .= vec(f(x,p,t) + (outer_(g(x,p,t))*r)) # evolution guided by observations
+  else
+    du[end] = ..
+    dx[:] .= ..
+  end
 
   return nothing
 end
@@ -66,19 +70,24 @@ function (G::GuidingDriftCache)(u,p,t)
   if isapprox(t, ts[cur_time]; atol = 1000eps(typeof(t)), rtol = 1000eps(t))
     # non-interpolating version
     # take care for multivariate case here if P isa Matrix, ν  isa Vector, c isa Scalar
-    # ν, P, c
-    ν = @view soldis[1:d,cur_time]
-    P = reshape(@view(soldis[d+1:d+d*d,cur_time]), d, d)
+    # ν, P, c or F, H, c parametrization = μ,Σ,c
+    μ = @view soldis[1:d,cur_time]
+    Σ = reshape(@view(soldis[d+1:d+d*d,cur_time]), d, d)
   else
-    ν = @view sol(t)[1:d]
-    P = reshape(@view(sol(t)[d+1:d+d*d]), d, d)
+    μ = @view sol(t)[1:d]
+    Σ = reshape(@view(sol(t)[d+1:d+d*d]), d, d)
   end
 
-  r = P\(ν .- x)
+  if !(filter isa InformationFilter)
+    r = Σ\(μ .- x)
 
-  dl = dot(f(x,p,t) -  ktilde.f(x,ktilde.p,t), r) - 0.5*tr((outer_(g(x,p,t)) - outer_(ktilde.g(x,ktilde.p,t)))*(inv(P) - outer_(r)))
-  dx = vec(f(x, p, t) + outer_(g(x, p, t))*r) # evolution guided by observations
-
+    dl = dot(f(x,p,t) -  ktilde.f(x,ktilde.p,t), r) - 0.5*tr((outer_(g(x,p,t)) - outer_(ktilde.g(x,ktilde.p,t)))*(inv(Σ) - outer_(r)))
+    dx = vec(f(x,p,t) + outer_(g(x,p,t))*r) # evolution guided by observations
+  else
+    dl = ..
+    dx = ..
+  end
+  
   return mypack(dx, dl)
 end
 

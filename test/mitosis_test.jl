@@ -76,7 +76,6 @@ p = l.y
 WG = WGaussian{(:μ,:Σ,:c)}(y_, 0.0, 0.0) #
 
 message, solend = MitosisStochasticDiffEq.backwardfilter(sdekernel, WG)
-
 @testset "Mitosis backward" begin
     @test (p.c)[] ≈ solend.c
     @test (p.Γ\p.F)[] ≈ solend.μ atol=atol
