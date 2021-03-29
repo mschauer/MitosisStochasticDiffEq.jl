@@ -3,6 +3,7 @@ using Mitosis
 using DiffEqNoiseProcess
 using Test, Random
 using LinearAlgebra
+using Statistics
 
 # Test outer function
 @testset "outer function tests" begin
@@ -384,5 +385,100 @@ end
   @test isapprox(solfw.t, message.ts, rtol=1e-10)
   @test isapprox(solfw.t, MitosisStochasticDiffEq.timechange(trange), rtol=1e-10)
   @test length(solfw.t) == length(trange)
+
+end
+
+
+@testset "Reuse of noise values tests" begin
+  Random.seed!(12345)
+  using StochasticDiffEq, DiffEqNoiseProcess
+  # set true model parameters
+  p = [-0.1,0.2,0.9]
+
+  # set of linear parameters Eq.~(2.2)
+  B, β, σ̃ = -0.1, 0.2, 1.3
+  plin = [B, β, σ̃]
+  pest = [-0.4, 0.5, 1.4] # initial guess of parameter to be estimated
+
+  # time span
+  tstart = 0.0
+  tend = 1.0
+  dt = 0.001
+  trange = tstart:dt:tend
+
+  # intial condition
+  u0 = 1.1
+
+  # forward kernel
+  sdekernel = MitosisStochasticDiffEq.SDEKernel(f,g,trange,pest)
+
+  # initial values for ODE
+  mynames = (:logscale, :μ, :Σ);
+  myvalues = [0.0, 0.0, 10.0];
+  NT = NamedTuple{mynames}(myvalues)
+
+  # backward kernel
+  kerneltilde = MitosisStochasticDiffEq.SDEKernel(Mitosis.AffineMap(B, β), Mitosis.ConstantMap(σ̃), trange, plin)
+  message, backward = MitosisStochasticDiffEq.backwardfilter(kerneltilde, NT)
+
+
+  # define NoiseGrid
+  brownian_values = cumsum([[zeros(2)];[sqrt(dt)*randn(2) for i in 1:length(trange)-1]])
+  W = NoiseGrid(collect(trange),brownian_values)
+
+  x0 = randn()
+  ll0 = randn()
+
+  # test two subsequent evaluations with same Brownian motion given by NoiseGrid
+  solfw, ll = MitosisStochasticDiffEq.forwardguiding(sdekernel, message, (x0, ll0),
+            W; alg=EM(), dt=dt)
+  solfw2, ll2 = MitosisStochasticDiffEq.forwardguiding(sdekernel, message, (x0, ll0),
+            W; alg=EM(), dt=dt)
+
+  @test isapprox(ll, ll2, rtol=1e-14)
+  @test isapprox(solfw.u, solfw2.u, rtol=1e-14)
+  @test isapprox(solfw.W.W, solfw2.W.W, rtol=1e-14)
+  @test isapprox(solfw.W.W, W.W, rtol=1e-14)
+
+  # test pCN with \rho = 1
+  solfw, ll = MitosisStochasticDiffEq.forwardguiding(sdekernel, message, (x0, ll0)
+             ; alg=EM(), dt=dt, save_noise=true)
+
+  Z = pCN(solfw.W, 1.0)
+
+  solfw2, ll2 = MitosisStochasticDiffEq.forwardguiding(sdekernel, message, (x0, ll0),
+            Z; alg=EM(), dt=dt)
+
+  @test isapprox(ll, ll2, rtol=1e-14)
+  @test isapprox(solfw.u, solfw2.u, rtol=1e-14)
+  @test isapprox(solfw.W.W, solfw2.W.W, rtol=1e-14)
+  @test isapprox(solfw.W.W, Z.W, rtol=1e-14)
+  @test W.W != Z.W
+
+
+  # test pCN with ρ = 0.2 (decrease dt for test)
+  ρ = 0.2
+  dt = 0.0001
+  trange = tstart:dt:tend
+  # backward kernel
+  kerneltilde = MitosisStochasticDiffEq.SDEKernel(Mitosis.AffineMap(B, β), Mitosis.ConstantMap(σ̃), trange, plin)
+  message, backward = MitosisStochasticDiffEq.backwardfilter(kerneltilde, NT)
+  solfw, ll = MitosisStochasticDiffEq.forwardguiding(sdekernel, message, (x0, ll0)
+             ; alg=EM(), dt=dt, save_noise=true)
+
+  Z = pCN(solfw.W, ρ)
+
+  solfw2, ll2 = MitosisStochasticDiffEq.forwardguiding(sdekernel, message, (x0, ll0),
+            Z; alg=EM(), dt=dt)
+
+  computedW(W, indx, dt) = (W[indx+1][1]-W[indx][1])/sqrt(dt) # likelihood part can be ignored
+  dWnew = []
+  dWold = []
+  for i in 1:length(solfw.t[1:end-1])
+    push!(dWnew,computedW(solfw.W.W,i,dt))
+    push!(dWold,computedW(solfw2.W.W,i,dt))
+  end
+  @show cor(dWnew,dWold)
+  @test ≈(cor(dWnew,dWold),ρ,rtol=1e-1)
 
 end
