@@ -287,13 +287,13 @@ function mcmc(θ, prior, iters, X, tree; dt0 = 0.001, rho=0.9)
     Q = [i in tree.lids ? WGaussian{(:μ,:Σ,:c)}(Vector(X[i]), 0.01Matrix(I(d)), 0.0) : missing for i in eachindex(X)]
 
     guidedsegs = Vector{Any}(undef, n) # save all guided segments
-    ll = zeros(n)
-    llprop = zeros(n)
+    ll = 0.0
+    llprop = 0.0
 
     θlin = (B(θ), zeros(d), Σ(θ))
     Q, messages = bwfiltertree!(Q, tree, θlin, dt0)
 
-    X, guidedsegs, ll = fwguidtree!(messages, X, guidedsegs, ll, tree, f, g, θ, 0.0)
+    X, guidedsegs, _, ll = fwguidtree!(messages, X, guidedsegs, ll, tree, f, g, θ, 0.0)
     accepted = 0
 
     for iter in 1:iters
@@ -304,10 +304,10 @@ function mcmc(θ, prior, iters, X, tree; dt0 = 0.001, rho=0.9)
         # G = driftparamstree(prior, guidedsegs, tree, f, g, θ, paramjac, messages)
         # θ = (rand(convert(Gaussian{(:μ, :Σ)}, G)), θ[2])
         θprop = (θ[1] + 0.01*randn(size(θ[1])...), θ[2])
-        Xprop, guidedsegsprop, llprop = fwguidtree!(messages, X, guidedsegs2, llprop, tree, f, g, θprop, rho)
+        Xprop, guidedsegsprop, _, llprop = fwguidtree!(messages, X, guidedsegs2, llprop, tree, f, g, θprop, rho)
         push!(θs, θ)
-        if log(rand()) < (sum(llprop) - sum(ll))
-            ll .= llprop
+        if log(rand()) < llprop - ll
+            ll = llprop
             θ = θprop
             guidedsegs .= guidedsegsprop
             X .= Xprop
