@@ -13,7 +13,7 @@ function range2ind(ts::AbstractVector, t)
 end
 
 unpackx(a) = @view a[1:end-1]
-mypack(a::SArray,c::Number) = SArray([a; c])
+mypack(a::SArray,c::Number) = SVector(a..., c)
 mypack(a,c::Number) = [a; c]
 
 # linear approximation
