@@ -1,4 +1,4 @@
-# MitosisStochasticDiffEq.jl (work in progress)
+# MitosisStochasticDiffEq.jl
 
 [![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://mschauer.github.io/MitosisStochasticDiffEq.jl/stable)
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://mschauer.github.io/MitosisStochasticDiffEq.jl/dev)
