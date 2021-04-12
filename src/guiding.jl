@@ -87,7 +87,7 @@ function (G::GuidingDriftCache)(u,p,t)
     dl = ..
     dx = ..
   end
-  
+
   return mypack(dx, dl)
 end
 
@@ -105,7 +105,7 @@ function (G::GuidingDiffusionCache)(u,p,t)
 
   x = @view u[1:end-1]
   dx = g(x,p,t)
-  return mypack(dx, 0.0)
+  return mypack(dx, zero(eltype(u)))
 end
 
 
