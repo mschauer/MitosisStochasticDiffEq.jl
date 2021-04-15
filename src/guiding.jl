@@ -23,7 +23,7 @@ mypack(a,c::Number) = [a; c]
 # guided drift
 function (G::GuidingDriftCache)(du,u,p,t)
   @unpack k, message = G
-  @unpack f, g = k
+  @unpack f, g, constant_diffusity = k
   @unpack ktilde, ts, soldis, sol, filter = message
 
   x = unpackx(u)
@@ -46,7 +46,10 @@ function (G::GuidingDriftCache)(du,u,p,t)
 
   if !(filter isa InformationFilter)
     r = Σ\(μ - x)
-    du[end] = dot(f(x,p,t) - ktilde.f(x,ktilde.p,t), r) - 0.5*tr((outer_(g(x,p,t)) - outer_(ktilde.g(x,ktilde.p,t)))*(inv(Σ) - outer_(r)))
+    du[end] = dot(f(x,p,t) - ktilde.f(x,ktilde.p,t), r)
+    if !constant_diffusity
+      du[end] -= 0.5*tr((outer_(g(x,p,t)) - outer_(ktilde.g(x,ktilde.p,t)))*(inv(Σ) - outer_(r)))
+    end
     dx[:] .= vec(f(x,p,t) + (outer_(g(x,p,t))*r)) # evolution guided by observations
   else
     du[end] = ..
@@ -58,7 +61,7 @@ end
 
 function (G::GuidingDriftCache)(u,p,t)
   @unpack k, message = G
-  @unpack f, g = k
+  @unpack f, g, constant_diffusity = k
   @unpack ktilde, ts, soldis, sol = message
 
   x = unpackx(u)
@@ -81,7 +84,10 @@ function (G::GuidingDriftCache)(u,p,t)
   if !(filter isa InformationFilter)
     r = Σ\(μ .- x)
 
-    dl = dot(f(x,p,t) -  ktilde.f(x,ktilde.p,t), r) - 0.5*tr((outer_(g(x,p,t)) - outer_(ktilde.g(x,ktilde.p,t)))*(inv(Σ) - outer_(r)))
+    dl = dot(f(x,p,t) -  ktilde.f(x,ktilde.p,t), r)
+    if !constant_diffusity
+      dl -= 0.5*tr((outer_(g(x,p,t)) - outer_(ktilde.g(x,ktilde.p,t)))*(inv(Σ) - outer_(r)))
+    end
     dx = vec(f(x,p,t) + outer_(g(x,p,t))*r) # evolution guided by observations
   else
     dl = ..

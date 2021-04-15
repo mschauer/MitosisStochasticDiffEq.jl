@@ -482,3 +482,67 @@ end
   @test ≈(cor(dWnew,dWold),ρ,rtol=1e-1)
 
 end
+
+
+@testset "flag constant diffusivity tests" begin
+  Random.seed!(12345)
+
+  ## define model (two traits, as in phylo)
+  d = 2
+  bθ = [.5, 0.9]
+  σ0 = [1.25, 1.35]
+  θ0 = (bθ, σ0)
+
+  θ = ([-1.0, -0.2], [0.1, 0.1])
+  M = -0.05I + [-1.0 1.0; 1.0 -1.0]
+
+  B(θ) = Diagonal(θ[1]) * M
+  Σ(θ) = Diagonal(θ[2])
+
+  f(u,θ,t) = tanh.(Diagonal(θ[1]) * M * u)
+  g(u,θ,t) = θ[2]
+
+  u0 = zeros(2)
+
+  θlin = (B(θ), zeros(d), Σ(θ))
+
+  # time span
+  tstart = 0.0
+  tend = 0.1
+  dt = 0.001
+  trange = tstart:dt:tend
+
+  # forward kernels
+  κ = MitosisStochasticDiffEq.SDEKernel(f, g, trange, θ0)
+  κ2 = MitosisStochasticDiffEq.SDEKernel(f, g, trange, θ0, true)
+  # backward kernel
+  κ̃ = MitosisStochasticDiffEq.SDEKernel(Mitosis.AffineMap(θlin[1], θlin[2]), Mitosis.ConstantMap(θlin[3]), trange, θlin)
+
+  # forward sample
+  x, xT = MitosisStochasticDiffEq.sample(κ, u0; save_noise=true)
+  Z = NoiseWrapper(x.W)
+  x2, xT2 = MitosisStochasticDiffEq.sample(κ2, u0; Z=Z)
+
+  @test x.u ≈ x2.u
+  @test xT ≈ xT2
+
+  # backward filter
+  logscale = randn()
+  ν = randn(d)
+  P = randn(d,d)
+  gaussian = WGaussian{(:μ,:Σ,:c)}(ν, P, logscale)
+
+  message, backward = MitosisStochasticDiffEq.backwardfilter(κ̃, gaussian)
+
+  x0 = randn(d)
+  ll0 = randn()
+
+  solfw, ll = MitosisStochasticDiffEq.forwardguiding(κ, message, (x0, ll0); save_noise=true)
+  Z = pCN(solfw.W, 1.0)
+  solfw2, ll2 = MitosisStochasticDiffEq.forwardguiding(κ, message, (x0, ll0), Z)
+
+  @test ll ≈ ll2
+  @test isapprox(solfw.u, solfw2.u, rtol=1e-14)
+  @test isapprox(solfw.W.W, solfw2.W.W, rtol=1e-14)
+
+end

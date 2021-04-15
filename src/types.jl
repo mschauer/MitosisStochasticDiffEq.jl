@@ -3,6 +3,12 @@ struct SDEKernel{fType,gType,tType,pType}
   g::gType
   trange::tType
   p::pType
+  constant_diffusity::Bool
+end
+
+function SDEKernel(f,g,trange,p=nothing,constant_diffusity=false)
+  SDEKernel{typeof(f),typeof(g),typeof(trange),typeof(p),typeof(constant_diffusity)}(f,
+    g,trange,p,constant_diffusity)
 end
 
 abstract type AbstractFilteringAlgorithm end
