@@ -3,6 +3,7 @@ using Mitosis
 using Test, Random
 using LinearAlgebra
 using OrdinaryDiffEq
+Random.seed!(12345)
 @testset "backward Lyapunov filtering tests" begin
   # define SDE function
   f(u,p,t) = p[1]*u .+ p[2]
@@ -20,9 +21,9 @@ using OrdinaryDiffEq
 
   # initial values for ODE
   mynames = (:logscale, :μ, :Σ);
-  c = 0.0
-  ν = 0.0
-  P = 10.0
+  c = randn()
+  ν = randn()
+  P = 10*rand()
   myvalues = [c, ν, P]
   NT = NamedTuple{mynames}(myvalues)
 
@@ -51,7 +52,6 @@ using OrdinaryDiffEq
       Mitosis.AffineMap(B, β), Mitosis.ConstantMap(σ̃), trange, [B, β, σ̃]
   )
 
-  Random.seed!(12345)
   c = randn()
   ν = randn(dim)
   P = randn(dim,dim)
