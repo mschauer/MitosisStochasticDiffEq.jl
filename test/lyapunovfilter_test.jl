@@ -11,7 +11,7 @@ using OrdinaryDiffEq
   # time span
   tstart = 0.0
   tend = 1.0
-  dt = 0.000001
+  dt = 0.001
   trange = tstart:dt:tend
 
   # set of linear parameters Eq.~(2.2)
@@ -39,8 +39,32 @@ using OrdinaryDiffEq
   @test ν == message2.sol.νT
   @test c == message2.sol.cT
 
-  @test_broken message.soldis[1,:] ≈ message2.soldis[1,:] rtol=1e-10
+  @test message.soldis[1,:] ≈ message2.soldis[1,:] rtol=1e-10
   @test message.soldis[2,:] ≈ message2.soldis[2,:] rtol=1e-10
   @test message.soldis[3,:] ≈ message2.soldis[3,:] rtol=1e-10
-  @test isapprox(solend, solend2, rtol=1e-1)
+  @test isapprox(solend, solend2, rtol=1e-10)
+
+  dim = 5
+  m = 3
+  B, β, σ̃ = [Symmetric(randn(dim,dim)), randn(dim), randn(dim,m)] # B, β, σtil
+  kernel = MitosisStochasticDiffEq.SDEKernel(
+      Mitosis.AffineMap(B, β), Mitosis.ConstantMap(σ̃), trange, [B, β, σ̃]
+  )
+
+  Random.seed!(12345)
+  c = randn()
+  ν = randn(dim)
+  P = randn(dim,dim)
+  NT = NamedTuple{mynames}([c, ν, P])
+
+  message, solend  = MitosisStochasticDiffEq.backwardfilter(kernel, NT)
+  # Lyapunov filter
+  message2, solend2 = MitosisStochasticDiffEq.backwardfilter(kernel, NT,
+    filter=MitosisStochasticDiffEq.LyapunovFilter())
+
+  @test message.soldis[1:dim,:] ≈ message2.soldis[1:dim,:] rtol=1e-2
+  @test message.soldis[dim+1:dim+dim*dim,:] ≈ message2.soldis[dim+1:dim+dim*dim,:] rtol=1e-1
+  @test message.soldis[end,:] ≈ message2.soldis[end,:] rtol=1e-10
+  @test solend2 ≈ solend rtol=1e-1
+
 end
