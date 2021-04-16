@@ -183,7 +183,7 @@ end
 function solν(t,T,B,β,νT)
   #TODO
   # β time-dependent
-  νT*Φfunc(t,T,-B) + Φfunc(t,T,-B)*β*inv(B)*(Φfunc(t,T,B)-1)
+  Φfunc(t,T,B)*(νT + inv(B)*β) - inv(B)*β
 end
 
 function solc(t,T,B,cT)
@@ -208,6 +208,7 @@ function _backwardfilter(filter::LyapunovFilter,k::SDEKernel, (c, ν, P); apply_
   # solve Lyapunov equation
   B, β, σtil = p
   atil = construct_a(σtil,P)
+  (B isa Symmetric) && (B = Array(B))
   Σ = lyap(B,atil)
 
   if !apply_timechange
@@ -217,9 +218,18 @@ function _backwardfilter(filter::LyapunovFilter,k::SDEKernel, (c, ν, P); apply_
   end
 
   sol = solLyapunov(k, Σ, ν, P, c)
-  soldis = hcat(sol.(_ts)...)
+
+
+  u = sol.(_ts)
+  T = eltype(eltype(u))
+  N = length((size(u[1])..., length(u)))
+  SciMLsol = SciMLBase.ODESolution{T,N,typeof(u),Nothing,Nothing,typeof(_ts),Nothing,
+                        Nothing,Nothing,Nothing,Nothing}(
+                        u,nothing,nothing,
+                        _ts,nothing,nothing,nothing,nothing,true,0,nothing,:Success)
+  soldis = Array(SciMLsol)
 
   message = Message(k, sol, soldis, _ts, filter)
 
-  return message, soldis[:,1]
+  return message, SciMLsol[1]
 end
