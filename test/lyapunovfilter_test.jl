@@ -45,9 +45,30 @@ Random.seed!(12345)
   @test message.soldis[3,:] ≈ message2.soldis[3,:] rtol=1e-10
   @test isapprox(solend, solend2, rtol=1e-10)
 
-  dim = 5
+  dim = 1
+  m = 1
+  B, β, σ̃ = fill(B, 1, 1), fill(β, 1), fill(σ̃, 1, 1)
+  kernel = MitosisStochasticDiffEq.SDEKernel(
+      Mitosis.AffineMap(B, β), Mitosis.ConstantMap(σ̃), trange, [B, β, σ̃]
+  )
+
+  ν = fill(ν, 1)
+  P = fill(P, 1, 1)
+  NT = NamedTuple{mynames}([c, ν, P])
+
+  message, solend  = MitosisStochasticDiffEq.backwardfilter(kernel, NT, alg=OrdinaryDiffEq.Tsit5())
+  # Lyapunov filter
+  message2, solend2 = MitosisStochasticDiffEq.backwardfilter(kernel, NT,
+    filter=MitosisStochasticDiffEq.LyapunovFilter())
+
+  @test message.soldis[1,:] ≈ message2.soldis[1,:] rtol=1e-10
+  @test message.soldis[2,:] ≈ message2.soldis[2,:] rtol=1e-10
+  @test message.soldis[3,:] ≈ message2.soldis[3,:] rtol=1e-10
+  @test isapprox(solend, solend2, rtol=1e-10)
+
+  dim = 4
   m = 3
-  B, β, σ̃ = [Symmetric(randn(dim,dim)), randn(dim), randn(dim,m)] # B, β, σtil
+  B, β, σ̃ = [randn(dim,dim)-I, randn(dim), randn(dim,m)] # B, β, σtil
   kernel = MitosisStochasticDiffEq.SDEKernel(
       Mitosis.AffineMap(B, β), Mitosis.ConstantMap(σ̃), trange, [B, β, σ̃]
   )
@@ -55,9 +76,10 @@ Random.seed!(12345)
   c = randn()
   ν = randn(dim)
   P = randn(dim,dim)
+  P = I + 0.1*P*P'
   NT = NamedTuple{mynames}([c, ν, P])
 
-  message, solend  = MitosisStochasticDiffEq.backwardfilter(kernel, NT)
+  message, solend  = MitosisStochasticDiffEq.backwardfilter(kernel, NT,  alg=OrdinaryDiffEq.Tsit5())
   # Lyapunov filter
   message2, solend2 = MitosisStochasticDiffEq.backwardfilter(kernel, NT,
     filter=MitosisStochasticDiffEq.LyapunovFilter())
@@ -66,5 +88,4 @@ Random.seed!(12345)
   @test message.soldis[dim+1:dim+dim*dim,:] ≈ message2.soldis[dim+1:dim+dim*dim,:] rtol=1e-1
   @test message.soldis[end,:] ≈ message2.soldis[end,:] rtol=1e-10
   @test solend2 ≈ solend rtol=1e-1
-
 end
