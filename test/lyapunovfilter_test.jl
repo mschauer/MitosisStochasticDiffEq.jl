@@ -84,8 +84,8 @@ Random.seed!(12345)
   message2, solend2 = MitosisStochasticDiffEq.backwardfilter(kernel, NT,
     filter=MitosisStochasticDiffEq.LyapunovFilter())
 
-  @test message.soldis[1:dim,:] ≈ message2.soldis[1:dim,:] rtol=1e-2
-  @test message.soldis[dim+1:dim+dim*dim,:] ≈ message2.soldis[dim+1:dim+dim*dim,:] rtol=1e-1
+  @test message.soldis[1:dim,:] ≈ message2.soldis[1:dim,:] rtol=1e-10
+  @test message.soldis[dim+1:dim+dim*dim,:] ≈ message2.soldis[dim+1:dim+dim*dim,:] rtol=1e-10
   @test message.soldis[end,:] ≈ message2.soldis[end,:] rtol=1e-10
-  @test solend2 ≈ solend rtol=1e-1
+  @test solend2 ≈ solend rtol=1e-10
 end
