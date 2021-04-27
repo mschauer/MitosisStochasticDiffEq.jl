@@ -11,6 +11,7 @@ using UnPack
 using Statistics
 using StaticArrays
 using ForwardDiff
+using PaddedViews
 
 import SciMLBase.isinplace
 
