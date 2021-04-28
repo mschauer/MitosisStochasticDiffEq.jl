@@ -23,10 +23,11 @@ function backwardfilter(k::SDEKernel, (c, μ, Σ)::NamedTuple{(:logscale, :μ, :
 end
 
 # covariance filter ODE Eqs.
-compute_dP(B,P,σtil) = B*P + P*B' - outer_(σtil)
+compute_dP(B,P,σtil) = convert(typeof(P), B*P + P*B' - outer_(σtil))
 compute_dP(B,P::SArray,σtil::Number) = B*P + P*B' - σtil*σtil'*similar_type(P, Size(size(P,1),size(P,1)))(I)
+
 compute_dν(B,ν,β::Number) = B*ν .+ β
-compute_dν(B,ν,β) = B*ν + β
+compute_dν(B,ν,β) = convert(typeof(ν),B*ν + β)
 
 function compute_dP!(dP,B,P,σtil)
   dP .= B*P + P*B' - outer_(σtil)
