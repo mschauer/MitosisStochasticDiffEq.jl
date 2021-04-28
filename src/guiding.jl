@@ -16,10 +16,6 @@ unpackx(a) = @view a[1:end-1]
 mypack(a::SArray,c::Number) = SVector(a..., c)
 mypack(a,c::Number) = [a; c]
 
-# linear approximation
-(a::AffineMap)(u,p,t) = a.B*u .+ a.β
-(a::ConstantMap)(u,p,t) = a.x
-
 # guided drift
 function (G::GuidingDriftCache)(du,u,p,t)
   @unpack k, message = G
@@ -98,7 +94,7 @@ function (G::GuidingDriftCache)(u,p,t)
 end
 
 # guided diffusion
-function (G::GuidingDiffusionCache)(du,u,p,t)
+function (G::GuidingDiffusionVectorCache)(du,u,p,t)
   @unpack g = G
 
   x = @view u[1:end-1]
@@ -106,12 +102,51 @@ function (G::GuidingDiffusionCache)(du,u,p,t)
   return nothing
 end
 
-function (G::GuidingDiffusionCache)(u,p,t)
+function (G::GuidingDiffusionVectorCache)(u,p,t)
   @unpack g = G
 
   x = @view u[1:end-1]
   dx = g(x,p,t)
   return mypack(dx, zero(eltype(u)))
+end
+
+function (G::GuidingDiffusionCache)(du,u,p,t)
+  @unpack g = G
+
+  x = @view u[1:end-1]
+  du[1:end-1,1:end-1] .= g(x,p,t)
+  return nothing
+end
+
+
+function (G::GuidingDiffusionCache)(u,p,t)
+  @unpack g, padded_size = G
+
+  x = @view u[1:end-1]
+  dx = g(x,p,t)
+  return PaddedView(zero(eltype(dx)), dx, padded_size)
+end
+
+function construct_forwardguiding_Problem(k::SDEKernel, message, u0, Z, inplace)
+  @unpack f, g, trange, p, noise_rate_prototype = k
+
+  guided_f = GuidingDriftCache(k,message)
+
+  if noise_rate_prototype===nothing
+    # diagonal noise in StochasticDiffEq
+    guided_g = GuidingDiffusionVectorCache(g)
+    _noise_rate_prototype = nothing
+  else
+    # non-diagonal noise in StochasticDiffEq
+    padded_size = size(noise_rate_prototype) .+ 1
+    _noise_rate_prototype = PaddedView(zero(eltype(noise_rate_prototype)), noise_rate_prototype, padded_size)
+    guided_g = GuidingDiffusionCache(g,padded_size)
+  end
+
+  prob = SDEProblem{inplace}(guided_f, guided_g, u0, get_tspan(trange), p, noise=Z,
+                             noise_rate_prototype=_noise_rate_prototype)
+
+  return prob
 end
 
 
@@ -127,14 +162,8 @@ function forwardguiding(k::SDEKernel, message, (x0, ll0), Z=nothing; alg=EM(fals
   # check that message.ts is sorted
   !issorted(message.ts) && error("Something went wrong. Message.ts is not sorted! Please report this.")
 
-  guided_f = GuidingDriftCache(k,message)
-  guided_g = GuidingDiffusionCache(g)
-
-  if Z!==nothing
-    prob = SDEProblem{inplace}(guided_f, guided_g, u0, get_tspan(trange), p, noise=Z)
-  else
-    prob = SDEProblem{inplace}(guided_f, guided_g, u0, get_tspan(trange), p)
-  end
+  # construct guiding SDE problem
+  prob = construct_forwardguiding_Problem(k::SDEKernel, message, u0, Z, inplace)
 
   if numtraj==nothing
     if !isadaptive

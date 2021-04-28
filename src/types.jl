@@ -1,14 +1,15 @@
-struct SDEKernel{fType,gType,tType,pType}
+struct SDEKernel{fType,gType,tType,pType,NRPType}
   f::fType
   g::gType
   trange::tType
   p::pType
+  noise_rate_prototype::NRPType
   constant_diffusity::Bool
 end
 
-function SDEKernel(f,g,trange,p=nothing,constant_diffusity=false)
-  SDEKernel{typeof(f),typeof(g),typeof(trange),typeof(p),typeof(constant_diffusity)}(f,
-    g,trange,p,constant_diffusity)
+function SDEKernel(f,g,trange,p=nothing,noise_rate_prototype=nothing,constant_diffusity=false)
+  SDEKernel{typeof(f),typeof(g),typeof(trange),typeof(p),typeof(noise_rate_prototype),
+            typeof(constant_diffusity)}(f,g,trange,p,noise_rate_prototype,constant_diffusity)
 end
 
 abstract type AbstractFilteringAlgorithm end
@@ -49,8 +50,13 @@ struct GuidingDriftCache{kernelType,messageType}
   message::messageType
 end
 
-struct GuidingDiffusionCache{gType}
+struct GuidingDiffusionVectorCache{gType}
   g::gType
+end
+
+struct GuidingDiffusionCache{gType,sizeType}
+  g::gType
+  padded_size::sizeType
 end
 
 abstract type AbstractRegression{inplace} end

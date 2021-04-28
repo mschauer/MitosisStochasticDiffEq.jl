@@ -14,6 +14,10 @@ timechange(s, tstart=first(s), tend=last(s)) = tstart .+ (s .- tstart).*(2.0 .- 
 
 isinplace(R::AbstractRegression{inplace}) where {inplace} = inplace
 
+# linear approximation
+(a::AffineMap)(u,p,t) = a.B*u .+ a.β
+(a::ConstantMap)(u,p,t) = a.x
+
 function convert_message(message, F1::InformationFilter, F2::CovarianceFilter)
   @unpack ktilde, ts, soldis, sol = message
   # P = inv(H)

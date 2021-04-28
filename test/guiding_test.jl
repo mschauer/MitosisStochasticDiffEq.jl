@@ -484,7 +484,7 @@ end
 end
 
 
-@testset "flag constant diffusivity tests" begin
+@testset "flag-constant and matrix-valued diffusivity tests" begin
   Random.seed!(12345)
 
   ## define model (two traits, as in phylo)
@@ -513,13 +513,13 @@ end
   trange = tstart:dt:tend
 
   # forward kernels
-  κ = MitosisStochasticDiffEq.SDEKernel(f, g, trange, θ0)
-  κ2 = MitosisStochasticDiffEq.SDEKernel(f, g, trange, θ0, true)
+  κ1 = MitosisStochasticDiffEq.SDEKernel(f, g, trange, θ0)
+  κ2 = MitosisStochasticDiffEq.SDEKernel(f, g, trange, θ0, nothing, true)
   # backward kernel
   κ̃ = MitosisStochasticDiffEq.SDEKernel(Mitosis.AffineMap(θlin[1], θlin[2]), Mitosis.ConstantMap(θlin[3]), trange, θlin)
 
   # forward sample
-  x, xT = MitosisStochasticDiffEq.sample(κ, u0; save_noise=true)
+  x, xT = MitosisStochasticDiffEq.sample(κ1, u0; save_noise=true)
   Z = NoiseWrapper(x.W)
   x2, xT2 = MitosisStochasticDiffEq.sample(κ2, u0; Z=Z)
 
@@ -534,15 +534,36 @@ end
 
   message, backward = MitosisStochasticDiffEq.backwardfilter(κ̃, gaussian)
 
+  # forward guiding
+  κg1 = MitosisStochasticDiffEq.SDEKernel(f, g, trange, θ)
+  κg2 = MitosisStochasticDiffEq.SDEKernel(f, g, trange, θ, nothing, true)
+
   x0 = randn(d)
   ll0 = randn()
 
-  solfw, ll = MitosisStochasticDiffEq.forwardguiding(κ, message, (x0, ll0); save_noise=true)
-  Z = pCN(solfw.W, 1.0)
-  solfw2, ll2 = MitosisStochasticDiffEq.forwardguiding(κ, message, (x0, ll0), Z)
+  solfw1, ll1 = MitosisStochasticDiffEq.forwardguiding(κg1, message, (x0, ll0); save_noise=true)
+  Z = pCN(solfw1.W, 1.0)
+  solfw2, ll2 = MitosisStochasticDiffEq.forwardguiding(κg2, message, (x0, ll0), Z)
 
-  @test ll ≈ ll2
-  @test isapprox(solfw.u, solfw2.u, rtol=1e-14)
-  @test isapprox(solfw.W.W, solfw2.W.W, rtol=1e-14)
+  @test ll1 ≈ ll2
+  @test isapprox(solfw1.u, solfw2.u, rtol=1e-14)
+  @test isapprox(solfw1.W.W, solfw2.W.W, rtol=1e-14)
+
+
+  # check guiding with matrix-valued diffusion
+  gmat(u,θ,t) = Diagonal(θ[2])
+  kg3 = MitosisStochasticDiffEq.SDEKernel(f, gmat, trange, θ, Σ(θ), true)
+
+  # inplace=true
+  Z = pCN(solfw1.W, 1.0)
+  solfw3, ll3 = MitosisStochasticDiffEq.forwardguiding(kg3, message, (x0, ll0), Z)
+  @test ll1 ≈ ll3
+  @test isapprox(solfw1.u, solfw3.u, rtol=1e-14)
+
+  # inplace=false
+  Z = pCN(solfw1.W, 1.0)
+  solfw3, ll3 = MitosisStochasticDiffEq.forwardguiding(kg3, message, (x0, ll0), Z, inplace=false)
+  @test ll1 ≈ ll3
+  @test isapprox(solfw1.u, solfw3.u, rtol=1e-14)
 
 end
