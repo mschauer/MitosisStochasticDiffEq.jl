@@ -138,4 +138,65 @@ end
   @test isapprox(backwardstat.x[1], backward.x[1], rtol=1e-10)
   @test isapprox(backwardstat.x[2], backward.x[2], rtol=1e-10)
   @test isapprox(backwardstat.x[3], backward.x[3], rtol=1e-10)
+
+  # mixed cases
+  message1, backward1 = MitosisStochasticDiffEq.backwardfilter(tildekernel, NTstat)
+  @test typeof(backward1.x[1]) <: SArray
+  @test typeof(backward1.x[2]) <: SArray
+  @test typeof(backward1.x[3]) <: SArray
+
+  @test isapprox(backward1.x[1], backward.x[1], rtol=1e-10)
+  @test isapprox(backward1.x[2], backward.x[2], rtol=1e-10)
+  @test isapprox(backward1.x[3], backward.x[3], rtol=1e-10)
+
+  message2, backward2 = MitosisStochasticDiffEq.backwardfilter(tildekernelstat, NT)
+  @test !(typeof(backward2.x[1]) <: SArray)
+  @test !(typeof(backward2.x[2]) <: SArray)
+  @test !(typeof(backward2.x[3]) <: SArray)
+
+  @test isapprox(backward2.x[1], backward.x[1], rtol=1e-10)
+  @test isapprox(backward2.x[2], backward.x[2], rtol=1e-10)
+  @test isapprox(backward2.x[3], backward.x[3], rtol=1e-10)
+
+  # backward
+  (c, μ, Pmat) = NT
+  p = tildekernel.p
+  u0 = MitosisStochasticDiffEq.mypack(μ, Pmat, c)
+  MitosisStochasticDiffEq.CovarianceFilterODE(u0, p, 0.0)
+  b, β, σtil = p
+  MitosisStochasticDiffEq.compute_dν(b,μ,β)
+  MitosisStochasticDiffEq.compute_dP(b,Pmat,σtil)
+  @test typeof(MitosisStochasticDiffEq.compute_dν(b,μ,β)) == typeof(μ)
+  @test typeof(MitosisStochasticDiffEq.compute_dP(b,Pmat,σtil)) == typeof(Pmat)
+
+  # backwardstat
+  (c, μ, Pmat) = NTstat
+  p = tildekernelstat.p
+  u0 = MitosisStochasticDiffEq.mypack(μ, Pmat, c)
+  MitosisStochasticDiffEq.CovarianceFilterODE(u0, p, 0.0)
+  b, β, σtil = p
+  MitosisStochasticDiffEq.compute_dν(b,μ,β)
+  MitosisStochasticDiffEq.compute_dP(b,Pmat,σtil)
+  @test typeof(MitosisStochasticDiffEq.compute_dν(b,μ,β)) == typeof(μ)
+  @test typeof(MitosisStochasticDiffEq.compute_dP(b,Pmat,σtil)) == typeof(Pmat)
+
+  # backward1
+  (c, μ, Pmat) = NTstat
+  p = tildekernel.p
+  u0 = MitosisStochasticDiffEq.mypack(μ, Pmat, c)
+  MitosisStochasticDiffEq.CovarianceFilterODE(u0, p, 0.0)
+  b, β, σtil = p
+  MitosisStochasticDiffEq.compute_dν(b,μ,β)
+  MitosisStochasticDiffEq.compute_dP(b,Pmat,σtil)
+  @test typeof(MitosisStochasticDiffEq.compute_dν(b,μ,β)) == typeof(μ)
+  @test typeof(MitosisStochasticDiffEq.compute_dP(b,Pmat,σtil)) == typeof(Pmat)
+
+  # backward2
+  (c, μ, Pmat) = NT
+  p = tildekernelstat.p
+  u0 = MitosisStochasticDiffEq.mypack(μ, Pmat, c)
+  MitosisStochasticDiffEq.CovarianceFilterODE(u0, p, 0.0)
+  b, β, σtil = p
+  @test typeof(MitosisStochasticDiffEq.compute_dν(b,μ,β)) == typeof(μ)
+  @test typeof(MitosisStochasticDiffEq.compute_dP(b,Pmat,σtil)) == typeof(Pmat)
 end
