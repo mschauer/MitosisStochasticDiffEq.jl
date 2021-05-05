@@ -9,7 +9,7 @@ atol = 0.015
 par = [-0.2, 0.1, 0.9]
 
 # Samples
-K = 1000
+K = 5000
 
 # define SDE function
 f(u,p,t) = p[1]*u .+ p[2]
