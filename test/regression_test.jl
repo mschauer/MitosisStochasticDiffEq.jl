@@ -79,7 +79,7 @@ end
   # time span
   tstart = 0.0
   tend = 100.0
-  dt = 0.01
+  dt = 0.001
   trange = tstart:dt:tend
 
   # initial condition
