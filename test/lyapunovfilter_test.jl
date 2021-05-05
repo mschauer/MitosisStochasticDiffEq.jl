@@ -1,4 +1,4 @@
-using MitosisStochasticDiffEq
+import MitosisStochasticDiffEq as MSDE
 using Mitosis
 using Test, Random
 using LinearAlgebra
@@ -28,12 +28,12 @@ Random.seed!(12345)
   NT = NamedTuple{mynames}(myvalues)
 
   # covariance filter
-  kernel = MitosisStochasticDiffEq.SDEKernel(Mitosis.AffineMap(B, β), Mitosis.ConstantMap(σ̃), trange, plin)
-  message, solend = MitosisStochasticDiffEq.backwardfilter(kernel, NT, alg=OrdinaryDiffEq.Tsit5())
+  kernel = MSDE.SDEKernel(Mitosis.AffineMap(B, β), Mitosis.ConstantMap(σ̃), trange, plin)
+  message, solend = MSDE.backwardfilter(kernel, NT, alg=OrdinaryDiffEq.Tsit5())
 
   # Lyapunov filter
-  message2, solend2 = MitosisStochasticDiffEq.backwardfilter(kernel, NT,
-    filter=MitosisStochasticDiffEq.LyapunovFilter())
+  message2, solend2 = MSDE.backwardfilter(kernel, NT,
+    filter=MSDE.LyapunovFilter())
 
   @test message.ts == message2.ts
   @test P == message2.sol.PT
@@ -48,7 +48,7 @@ Random.seed!(12345)
   dim = 1
   m = 1
   B, β, σ̃ = fill(B, 1, 1), fill(β, 1), fill(σ̃, 1, 1)
-  kernel = MitosisStochasticDiffEq.SDEKernel(
+  kernel = MSDE.SDEKernel(
       Mitosis.AffineMap(B, β), Mitosis.ConstantMap(σ̃), trange, [B, β, σ̃]
   )
 
@@ -56,10 +56,10 @@ Random.seed!(12345)
   P = fill(P, 1, 1)
   NT = NamedTuple{mynames}([c, ν, P])
 
-  message, solend  = MitosisStochasticDiffEq.backwardfilter(kernel, NT, alg=OrdinaryDiffEq.Tsit5())
+  message, solend  = MSDE.backwardfilter(kernel, NT, alg=OrdinaryDiffEq.Tsit5())
   # Lyapunov filter
-  message2, solend2 = MitosisStochasticDiffEq.backwardfilter(kernel, NT,
-    filter=MitosisStochasticDiffEq.LyapunovFilter())
+  message2, solend2 = MSDE.backwardfilter(kernel, NT,
+    filter=MSDE.LyapunovFilter())
 
   @test message.soldis[1,:] ≈ message2.soldis[1,:] rtol=1e-10
   @test message.soldis[2,:] ≈ message2.soldis[2,:] rtol=1e-10
@@ -69,7 +69,7 @@ Random.seed!(12345)
   dim = 4
   m = 3
   B, β, σ̃ = [randn(dim,dim)-I, randn(dim), randn(dim,m)] # B, β, σtil
-  kernel = MitosisStochasticDiffEq.SDEKernel(
+  kernel = MSDE.SDEKernel(
       Mitosis.AffineMap(B, β), Mitosis.ConstantMap(σ̃), trange, [B, β, σ̃]
   )
 
@@ -79,10 +79,10 @@ Random.seed!(12345)
   P = I + 0.1*P*P'
   NT = NamedTuple{mynames}([c, ν, P])
 
-  message, solend  = MitosisStochasticDiffEq.backwardfilter(kernel, NT,  alg=OrdinaryDiffEq.Tsit5())
+  message, solend  = MSDE.backwardfilter(kernel, NT,  alg=OrdinaryDiffEq.Tsit5())
   # Lyapunov filter
-  message2, solend2 = MitosisStochasticDiffEq.backwardfilter(kernel, NT,
-    filter=MitosisStochasticDiffEq.LyapunovFilter())
+  message2, solend2 = MSDE.backwardfilter(kernel, NT,
+    filter=MSDE.LyapunovFilter())
 
   @test message.soldis[1:dim,:] ≈ message2.soldis[1:dim,:] rtol=1e-9
   @test message.soldis[dim+1:dim+dim*dim,:] ≈ message2.soldis[dim+1:dim+dim*dim,:] rtol=1e-9

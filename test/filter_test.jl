@@ -1,4 +1,4 @@
-using MitosisStochasticDiffEq
+import MitosisStochasticDiffEq as MSDE
 using Mitosis
 using Test, Random
 using LinearAlgebra
@@ -45,17 +45,17 @@ end
   # set of linear parameters Eq.~(2.2)
   B, β, σ̃ = -0.1, 0.2, 1.3
   plin = [B, β, σ̃]
-  kernel = MitosisStochasticDiffEq.SDEKernel(f,g,trange,plin)
+  kernel = MSDE.SDEKernel(f,g,trange,plin)
 
   # initial values for ODE
   mynames = (:logscale, :μ, :Σ);
   myvalues = [0.0, 0.0, 10.0];
   NT = NamedTuple{mynames}(myvalues)
 
-  message, solend = MitosisStochasticDiffEq.backwardfilter(kernel, NT)
+  message, solend = MSDE.backwardfilter(kernel, NT)
 
-  kernel2 = MitosisStochasticDiffEq.SDEKernel(Mitosis.AffineMap(B, β), Mitosis.ConstantMap(σ̃), trange, plin)
-  message2, solend2 = MitosisStochasticDiffEq.backwardfilter(kernel2, NT)
+  kernel2 = MSDE.SDEKernel(Mitosis.AffineMap(B, β), Mitosis.ConstantMap(σ̃), trange, plin)
+  message2, solend2 = MSDE.backwardfilter(kernel2, NT)
 
   @test isapprox(solend, solend2, rtol=1e-15)
   @test isapprox(Array(message.sol), Array(message2.sol), rtol=1e-15)
@@ -74,61 +74,61 @@ end
   myvalues = [logscale, μ, Σ];
   NT = NamedTuple{mynames}(myvalues)
 
-  kernel = MitosisStochasticDiffEq.SDEKernel(f,g,trange,plin)
-  message, solend = MitosisStochasticDiffEq.backwardfilter(kernel, NT)
+  kernel = MSDE.SDEKernel(f,g,trange,plin)
+  message, solend = MSDE.backwardfilter(kernel, NT)
   message2, solend2 = backwardfilter(NT, plin, message.ts)
 
   @test isapprox(solend.x[1], solend2[1], rtol=1e-15)
   @test isapprox(solend.x[2], solend2[2], rtol=1e-15)
   @test isapprox(solend.x[3][1], solend2[3], rtol=1e-15)
 
-  kernel2 = MitosisStochasticDiffEq.SDEKernel(Mitosis.AffineMap(B, β), Mitosis.ConstantMap(σ̃), trange, plin)
-  message2, solend2 = MitosisStochasticDiffEq.backwardfilter(kernel2, NT)
+  kernel2 = MSDE.SDEKernel(Mitosis.AffineMap(B, β), Mitosis.ConstantMap(σ̃), trange, plin)
+  message2, solend2 = MSDE.backwardfilter(kernel2, NT)
   @test isapprox(solend, solend2, rtol=1e-15)
   @test isapprox(Array(message.sol), Array(message2.sol), rtol=1e-15)
 
   # test inplace version
-  message2, solend2 = MitosisStochasticDiffEq.backwardfilter(kernel, NT, inplace=true)
+  message2, solend2 = MSDE.backwardfilter(kernel, NT, inplace=true)
   @test isapprox(solend, solend2, rtol=1e-15)
   @test isapprox(Array(message.sol), Array(message2.sol), rtol=1e-15)
 
-  message2, solend2 = MitosisStochasticDiffEq.backwardfilter(kernel2, NT, inplace=true)
+  message2, solend2 = MSDE.backwardfilter(kernel2, NT, inplace=true)
   @test isapprox(solend, solend2, rtol=1e-15)
   @test isapprox(Array(message.sol), Array(message2.sol), rtol=1e-15)
 
   m = 3 # some number of Brownian processes
   plin = [randn(dim,dim), randn(dim), randn(dim,m)] # B, β, σtil
 
-  kernel = MitosisStochasticDiffEq.SDEKernel(f,g,trange,plin)
-  message, solend = MitosisStochasticDiffEq.backwardfilter(kernel, NT)
+  kernel = MSDE.SDEKernel(f,g,trange,plin)
+  message, solend = MSDE.backwardfilter(kernel, NT)
   message2, solend2 = backwardfilter(NT, plin, message.ts)
 
   @test isapprox(solend.x[1], solend2[1], rtol=1e-14)
   @test isapprox(solend.x[2], solend2[2], rtol=1e-14)
   @test isapprox(solend.x[3][1], solend2[3], rtol=1e-14)
 
-  kernel2 = MitosisStochasticDiffEq.SDEKernel(Mitosis.AffineMap(B, β), Mitosis.ConstantMap(σ̃), trange, plin)
-  message2, solend2 = MitosisStochasticDiffEq.backwardfilter(kernel2, NT)
+  kernel2 = MSDE.SDEKernel(Mitosis.AffineMap(B, β), Mitosis.ConstantMap(σ̃), trange, plin)
+  message2, solend2 = MSDE.backwardfilter(kernel2, NT)
   @test isapprox(solend, solend2, rtol=1e-15)
   @test isapprox(Array(message.sol), Array(message2.sol), rtol=1e-15)
 
   # test inplace version
-  message2, solend2 = MitosisStochasticDiffEq.backwardfilter(kernel, NT, inplace=true)
+  message2, solend2 = MSDE.backwardfilter(kernel, NT, inplace=true)
   @test isapprox(solend, solend2, rtol=1e-15)
   @test isapprox(Array(message.sol), Array(message2.sol), rtol=1e-15)
 
   # test symmetric matrix
   plin = [Symmetric(randn(dim,dim)), randn(dim), randn(dim,m)] # B, β, σtil
-  kernel = MitosisStochasticDiffEq.SDEKernel(f,g,trange,plin)
-  kernel2 = MitosisStochasticDiffEq.SDEKernel(Mitosis.AffineMap(B, β), Mitosis.ConstantMap(σ̃), trange, plin)
-  message, solend  = MitosisStochasticDiffEq.backwardfilter(kernel, NT)
-  message2, solend2 = MitosisStochasticDiffEq.backwardfilter(kernel2, NT)
+  kernel = MSDE.SDEKernel(f,g,trange,plin)
+  kernel2 = MSDE.SDEKernel(Mitosis.AffineMap(B, β), Mitosis.ConstantMap(σ̃), trange, plin)
+  message, solend  = MSDE.backwardfilter(kernel, NT)
+  message2, solend2 = MSDE.backwardfilter(kernel2, NT)
   @test isapprox(solend, solend2, rtol=1e-15)
   @test isapprox(Array(message.sol), Array(message2.sol), rtol=1e-15)
 
   plin = [Array(plin[1]), plin[2], plin[3]] # B, β, σtil
-  kernel = MitosisStochasticDiffEq.SDEKernel(f,g,trange,plin)
-  message2, solend2  = MitosisStochasticDiffEq.backwardfilter(kernel, NT)
+  kernel = MSDE.SDEKernel(f,g,trange,plin)
+  message2, solend2  = MSDE.backwardfilter(kernel, NT)
 
   @test isapprox(solend, solend2, rtol=1e-15)
   @test isapprox(Array(message.sol), Array(message2.sol), rtol=1e-15)
@@ -154,12 +154,12 @@ end
   myvalues = [0.0, 0.0, 10.0];
   NT = NamedTuple{mynames}(myvalues)
 
-  kernel = MitosisStochasticDiffEq.SDEKernel(Mitosis.AffineMap(B, β), Mitosis.ConstantMap(σ̃), trange, plin)
-  message, solend = MitosisStochasticDiffEq.backwardfilter(kernel, NT, apply_timechange=true)
+  kernel = MSDE.SDEKernel(Mitosis.AffineMap(B, β), Mitosis.ConstantMap(σ̃), trange, plin)
+  message, solend = MSDE.backwardfilter(kernel, NT, apply_timechange=true)
 
   @test length(message.ts) == length(trange)
   @test message.ts != trange
-  @test message.ts == MitosisStochasticDiffEq.timechange(trange)
+  @test message.ts == MSDE.timechange(trange)
 
   message2, solend2 = backwardfilter(NT, plin, message.ts)
 
@@ -191,15 +191,15 @@ end
   myvalues = [0.0, 0.0, 10.0];
   NT = NamedTuple{mynames}(myvalues)
 
-  tildekernel = MitosisStochasticDiffEq.SDEKernel(Mitosis.AffineMap(B, β), Mitosis.ConstantMap(σ̃), trange, plin)
-  message, solend = MitosisStochasticDiffEq.backwardfilter(tildekernel, NT, alg=Tsit5(), apply_timechange=true)
+  tildekernel = MSDE.SDEKernel(Mitosis.AffineMap(B, β), Mitosis.ConstantMap(σ̃), trange, plin)
+  message, solend = MSDE.backwardfilter(tildekernel, NT, alg=Tsit5(), apply_timechange=true)
 
   # adaptive solution with large tolerances follows tstops
   @test length(message.ts) == length(trange)
   @test message.ts != trange
-  @test message.ts == MitosisStochasticDiffEq.timechange(trange)
+  @test message.ts == MSDE.timechange(trange)
 
-  message2, solend2 = MitosisStochasticDiffEq.backwardfilter(tildekernel, NT, alg=Tsit5(),
+  message2, solend2 = MSDE.backwardfilter(tildekernel, NT, alg=Tsit5(),
     abstol=1e-12, reltol=1e-12, apply_timechange=true)
 
   # adaptive solution with small tolerances steps to tstops but also takes additional substeps

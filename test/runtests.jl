@@ -1,4 +1,4 @@
-using MitosisStochasticDiffEq
+import MitosisStochasticDiffEq as MSDE
 using Test
 
 println("Run tests.")

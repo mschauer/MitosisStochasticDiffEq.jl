@@ -1,4 +1,4 @@
-using MitosisStochasticDiffEq
+import MitosisStochasticDiffEq as MSDE
 using Mitosis
 using Test, Random
 using LinearAlgebra
@@ -27,15 +27,15 @@ using LinearAlgebra
   NT = NamedTuple{mynames}(myvalues)
 
   # covariance filter
-  kernel = MitosisStochasticDiffEq.SDEKernel(Mitosis.AffineMap(B, β), Mitosis.ConstantMap(σ̃), trange, plin)
-  message, solend = MitosisStochasticDiffEq.backwardfilter(kernel, NT)
+  kernel = MSDE.SDEKernel(Mitosis.AffineMap(B, β), Mitosis.ConstantMap(σ̃), trange, plin)
+  message, solend = MSDE.backwardfilter(kernel, NT)
 
   # information filter
   H = inv(P)
   F = H*ν
   myvalues2 = [c, F, H]
   NT2 = NamedTuple{mynames}(myvalues2)
-  message2, solend2 = MitosisStochasticDiffEq.backwardfilter(kernel, NT2, filter=MitosisStochasticDiffEq.InformationFilter())
+  message2, solend2 = MSDE.backwardfilter(kernel, NT2, filter=MSDE.InformationFilter())
 
   @test !isapprox(solend, solend2, rtol=1e-1)
   invH = inv(solend2[2])
@@ -59,12 +59,12 @@ using LinearAlgebra
   NT2 = NamedTuple{mynames}(myvalues2)
 
   # covariance filter
-  kernel = MitosisStochasticDiffEq.SDEKernel(Mitosis.AffineMap(B, β), Mitosis.ConstantMap(σ̃), trange, plin)
-  message, solend = MitosisStochasticDiffEq.backwardfilter(kernel, NT)
+  kernel = MSDE.SDEKernel(Mitosis.AffineMap(B, β), Mitosis.ConstantMap(σ̃), trange, plin)
+  message, solend = MSDE.backwardfilter(kernel, NT)
 
   # information filter
-  message2, solend2 = MitosisStochasticDiffEq.backwardfilter(kernel, NT2,
-    filter=MitosisStochasticDiffEq.InformationFilter())
+  message2, solend2 = MSDE.backwardfilter(kernel, NT2,
+    filter=MSDE.InformationFilter())
 
   @test !isapprox(solend, solend2, rtol=1e-1)
   invH = inv(solend2.x[2])
@@ -74,8 +74,8 @@ using LinearAlgebra
   @test isapprox(solend.x[3], solend2.x[3], rtol=1e-10)
 
   # test inplace version
-  message2, solend2 = MitosisStochasticDiffEq.backwardfilter(kernel, NT2,
-    filter=MitosisStochasticDiffEq.InformationFilter(), inplace=true)
+  message2, solend2 = MSDE.backwardfilter(kernel, NT2,
+    filter=MSDE.InformationFilter(), inplace=true)
 
   @test !isapprox(solend, solend2, rtol=1e-1)
   invH = inv(solend2.x[2])
@@ -113,12 +113,12 @@ end
 # NT2 = NamedTuple{mynames}(myvalues2)
 #
 # # covariance filter
-# kernel = MitosisStochasticDiffEq.SDEKernel(Mitosis.AffineMap(B, β), Mitosis.ConstantMap(σ̃), trange, plin)
-# message, solend = MitosisStochasticDiffEq.backwardfilter(kernel, NT)
+# kernel = MSDE.SDEKernel(Mitosis.AffineMap(B, β), Mitosis.ConstantMap(σ̃), trange, plin)
+# message, solend = MSDE.backwardfilter(kernel, NT)
 #
 # # information filter
-# message2, solend2 = MitosisStochasticDiffEq.backwardfilter(kernel, NT2,
-#   filter=MitosisStochasticDiffEq.InformationFilter())
+# message2, solend2 = MSDE.backwardfilter(kernel, NT2,
+#   filter=MSDE.InformationFilter())
 #
 #
 # @test !isapprox(solend, solend2, rtol=1e-1)
@@ -129,8 +129,8 @@ end
 # @test isapprox(solend.x[3], solend2.x[3], rtol=1e-10)
 
 # test inplace version
-# message2, solend2 = MitosisStochasticDiffEq.backwardfilter(kernel, NT2, inplace=true,
-#   filter=MitosisStochasticDiffEq.InformationFilter())
+# message2, solend2 = MSDE.backwardfilter(kernel, NT2, inplace=true,
+#   filter=MSDE.InformationFilter())
 #
 # @test !isapprox(solend, solend2, rtol=1e-1)
 # invH = inv(solend2.x[2])
