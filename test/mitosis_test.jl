@@ -1,5 +1,5 @@
-#using Revise
-using Mitosis, MitosisStochasticDiffEq, Statistics
+import MitosisStochasticDiffEq as MSDE
+using Mitosis, Statistics
 using LinearAlgebra, Test
 using Random
 Random.seed!(126)
@@ -26,19 +26,19 @@ u0 = 1.1
 
 # set of linear parameters Eq.~(2.2)
 plin = copy(par)
-sdekernel = MitosisStochasticDiffEq.SDEKernel(f,g,trange,plin)
+sdekernel = MSDE.SDEKernel(f,g,trange,plin)
 
 plin2 = par2 = [-0.1, -0.05, 1.0]
-sdekernel2 = MitosisStochasticDiffEq.SDEKernel(f,g,trange,plin)
-sdekerneltilde2 = MitosisStochasticDiffEq.SDEKernel(f,g,trange,plin2)
+sdekernel2 = MSDE.SDEKernel(f,g,trange,plin)
+sdekerneltilde2 = MSDE.SDEKernel(f,g,trange,plin2)
 
 
 
-sol, y_ = MitosisStochasticDiffEq.sample(sdekernel, u0, save_noise=true)
+sol, y_ = MSDE.sample(sdekernel, u0, save_noise=true)
 
 y_ = 1.39
 y = vcat(y_)
-samples_ = MitosisStochasticDiffEq.sample(sdekernel, u0, K, save_noise=true).u
+samples_ = MSDE.sample(sdekernel, u0, K, save_noise=true).u
 
 samples = vcat.(samples_)
 
@@ -75,7 +75,7 @@ p = l.y
 # initial values for ODE
 WG = WGaussian{(:μ,:Σ,:c)}(y_, 0.0, 0.0) #
 
-message, solend = MitosisStochasticDiffEq.backwardfilter(sdekernel, WG)
+message, solend = MSDE.backwardfilter(sdekernel, WG)
 @testset "Mitosis backward" begin
     @test (p.c)[] ≈ solend.c
     @test (p.Γ\p.F)[] ≈ solend.μ atol=atol
@@ -91,13 +91,13 @@ pT = kᵒ([u0])
 
 # initial values for ODE
 WG = WGaussian{(:μ,:Σ,:c)}(y_, 0.2, 0.0) # start with observation μ=y with uncertainty Σ=0.1
-message, solend = MitosisStochasticDiffEq.backwardfilter(sdekernel, WG)
+message, solend = MSDE.backwardfilter(sdekernel, WG)
 
-solfw, ll = MitosisStochasticDiffEq.forwardguiding(sdekernel, message, (u0, 0.0), Z=nothing; save_noise=true)
+solfw, ll = MSDE.forwardguiding(sdekernel, message, (u0, 0.0), Z=nothing; save_noise=true)
 
 @test ll == 0
 
-samples = [MitosisStochasticDiffEq.forwardguiding(sdekernel, message, (u0, 0.0), Z=nothing; save_noise=true)[1][1,end] for k in 1:K]
+samples = [MSDE.forwardguiding(sdekernel, message, (u0, 0.0), Z=nothing; save_noise=true)[1][1,end] for k in 1:K]
 
 @testset "Mitosis forward" begin
     @test pT.μ[] ≈ mean(samples) atol=atol
@@ -110,17 +110,17 @@ end
 m, p2 = Mitosis.backwardfilter(gkernel2, V)
 gᵒ = Mitosis.forward(BFFG(), gkernel, m, [u0])
 
-message, solend = MitosisStochasticDiffEq.backwardfilter(sdekerneltilde2, WG)
+message, solend = MSDE.backwardfilter(sdekerneltilde2, WG)
 @testset "Mitosis backward tilted" begin
     @test (p2.c)[] ≈ solend.c
     @test (p2.Γ\p2.F)[] ≈ solend.μ atol=atol
     @test inv(p2.Γ)[] ≈ solend.Σ atol=atol
 end
 
-solfw, ll = MitosisStochasticDiffEq.forwardguiding(sdekernel2, message, (u0, 0.0), Z=nothing; save_noise=true)
+solfw, ll = MSDE.forwardguiding(sdekernel2, message, (u0, 0.0), Z=nothing; save_noise=true)
 
 we((x,c)) = x*exp(c)
-samples2 = [MitosisStochasticDiffEq.forwardguiding(sdekernel2, message, (u0, 0.0), Z=nothing; save_noise=true)[1][:,end] for k in 1:K]
+samples2 = [MSDE.forwardguiding(sdekernel2, message, (u0, 0.0), Z=nothing; save_noise=true)[1][:,end] for k in 1:K]
 
 samples = we.(samples2)
 

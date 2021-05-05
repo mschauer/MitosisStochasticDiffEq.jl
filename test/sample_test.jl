@@ -1,4 +1,4 @@
-using MitosisStochasticDiffEq
+import MitosisStochasticDiffEq as MSDE
 using Mitosis
 using LinearAlgebra
 using SparseArrays
@@ -39,12 +39,12 @@ end
   # intial condition
   u0 = 1.1
 
-  kernel = MitosisStochasticDiffEq.SDEKernel(f,g,trange,p)
-  # sample using MitosisStochasticDiffEq and EM default
-  sol, solend = MitosisStochasticDiffEq.sample(kernel, u0)
+  kernel = MSDE.SDEKernel(f,g,trange,p)
+  # sample using MSDE and EM default
+  sol, solend = MSDE.sample(kernel, u0)
 
-  kernel = MitosisStochasticDiffEq.SDEKernel(f,g,collect(trange),p)
-  sol, solend = MitosisStochasticDiffEq.sample(kernel, u0, save_noise=true)
+  kernel = MSDE.SDEKernel(f,g,collect(trange),p)
+  sol, solend = MSDE.sample(kernel, u0, save_noise=true)
 
   @test isapprox(sol.u, forwardsample(f,g,p,sol.t,sol.W.W,sol.prob.u0), atol=1e-12)
 end
@@ -81,18 +81,18 @@ end
   trange = tstart:dt:tend
 
   # define kernels
-  k1 = MitosisStochasticDiffEq.SDEKernel(f,gvec,trange,θlin)
-  k2 = MitosisStochasticDiffEq.SDEKernel(f,g,trange,θlin,Σ(θlin))
-  k3 = MitosisStochasticDiffEq.SDEKernel(f!,g!,trange,θlin,A)
-  k4 = MitosisStochasticDiffEq.SDEKernel(Mitosis.AffineMap(θlin[1], θlin[2]), Mitosis.ConstantMap(θlin[3]), trange, θlin, Σ(θlin))
+  k1 = MSDE.SDEKernel(f,gvec,trange,θlin)
+  k2 = MSDE.SDEKernel(f,g,trange,θlin,Σ(θlin))
+  k3 = MSDE.SDEKernel(f!,g!,trange,θlin,A)
+  k4 = MSDE.SDEKernel(Mitosis.AffineMap(θlin[1], θlin[2]), Mitosis.ConstantMap(θlin[3]), trange, θlin, Σ(θlin))
 
-  sol1, solend1 = MitosisStochasticDiffEq.sample(k1, u0, save_noise=true)
+  sol1, solend1 = MSDE.sample(k1, u0, save_noise=true)
   Z = pCN(sol1.W, 1.0)
-  sol2, solend2 = MitosisStochasticDiffEq.sample(k2, u0, Z=Z, save_noise=true)
+  sol2, solend2 = MSDE.sample(k2, u0, Z=Z, save_noise=true)
   Z = pCN(sol1.W, 1.0)
-  sol3, solend3 = MitosisStochasticDiffEq.sample(k3, u0, Z=Z)
+  sol3, solend3 = MSDE.sample(k3, u0, Z=Z)
   Z = pCN(sol1.W, 1.0)
-  sol4, solend4 = MitosisStochasticDiffEq.sample(k4, u0, Z=Z)
+  sol4, solend4 = MSDE.sample(k4, u0, Z=Z)
 
   @show solend1
   @test isapprox(sol1.u, sol2.u, atol=1e-12)

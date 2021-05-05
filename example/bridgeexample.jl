@@ -8,8 +8,8 @@ B = SMatrix{4,4,Float64}([-0.1 0 1.0 0 ; 0 -0.1 0 1.0; 0 0 -1 8.0; 0 0 -8.0 -1])
 β = SVector(0.0, 0.0, 0.0, 0.0)
 plin = (B, β, σ)
 
-
-using MitosisStochasticDiffEq, Mitosis
+import MitosisStochasticDiffEq as MSDE
+using Mitosis
 
 # define SDE function
 f(u,p,t) = p[1]*u + p[2]
@@ -28,15 +28,15 @@ u0 = SVector(0.0, 1.0, 1.0, 0.0)
 # End point
 uT = u0 # loop
 
-sdekernel = MitosisStochasticDiffEq.SDEKernel(f,g,trange,plin)
-kerneltilde = MitosisStochasticDiffEq.SDEKernel(Mitosis.AffineMap(B, β), Mitosis.ConstantMap(σ), trange, plin)
+sdekernel = MSDE.SDEKernel(f,g,trange,plin)
+kerneltilde = MSDE.SDEKernel(Mitosis.AffineMap(B, β), Mitosis.ConstantMap(σ), trange, plin)
 
 WG = WGaussian{(:μ,:Σ,:c)}(uT, SMatrix{4,4}(Diagonal([0.0001, 0.0001, 0.0001, 0.0001].^(-2.0))), 0.0) # move back from endpoint plus a bit of uncertainty
 WG = (;logscale = 0.0, μ=uT, Σ=SMatrix{4,4}(Diagonal([0.0000001, 0.0000001, 0.0000001, 0.0000001].^(2.0))))
 
-message, solend = MitosisStochasticDiffEq.backwardfilter(kerneltilde, WG)
+message, solend = MSDE.backwardfilter(kerneltilde, WG)
 
-solfw, ll = MitosisStochasticDiffEq.forwardguiding(sdekernel, message, (u0, 0.0),
+solfw, ll = MSDE.forwardguiding(sdekernel, message, (u0, 0.0),
    Z=nothing; inplace=false, save_noise=true)
 
 u = solfw.u

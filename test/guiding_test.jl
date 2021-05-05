@@ -1,4 +1,4 @@
-using MitosisStochasticDiffEq
+import MitosisStochasticDiffEq as MSDE
 using Mitosis
 using DiffEqNoiseProcess
 using Test, Random
@@ -8,9 +8,9 @@ using Statistics
 # Test outer function
 @testset "outer function tests" begin
   exA = rand(10,10)
-  @test minimum(MitosisStochasticDiffEq.outer_(exA) .!= 0)
+  @test minimum(MSDE.outer_(exA) .!= 0)
   exB = Diagonal(exA)
-  @test sum(MitosisStochasticDiffEq.outer_(exB) .!= 0) == 10
+  @test sum(MSDE.outer_(exB) .!= 0) == 10
 end
 
 """
@@ -25,8 +25,8 @@ function forwardguiding(plin, pest, s, (x, ll), ps, Z=randn(length(s)), noisetyp
     σlinear(u,p,t) = p[3]
 
     function llstep(x, r, t, P, noisetype)
-      tmp = MitosisStochasticDiffEq.outer_(g(x,pest,t)) - MitosisStochasticDiffEq.outer_(σlinear(x,plin,t))
-      dll = dot(f(x,pest,t) - flinear(x,plin,t), r) -0.5*tr(tmp*(inv(P) - MitosisStochasticDiffEq.outer_(r)))
+      tmp = MSDE.outer_(g(x,pest,t)) - MSDE.outer_(σlinear(x,plin,t))
+      dll = dot(f(x,pest,t) - flinear(x,plin,t), r) -0.5*tr(tmp*(inv(P) - MSDE.outer_(r)))
     end
 
     xs = typeof(x)[]
@@ -51,9 +51,9 @@ function forwardguiding(plin, pest, s, (x, ll), ps, Z=randn(length(s)), noisetyp
             error("noisetype not understood.")
         end
         if x isa Number
-           tmp = (MitosisStochasticDiffEq.outer_(g(x,pest,t))*r*dt)[1]
+           tmp = (MSDE.outer_(g(x,pest,t))*r*dt)[1]
        else
-           tmp = MitosisStochasticDiffEq.outer_(g(x,pest,t))*r*dt
+           tmp = MSDE.outer_(g(x,pest,t))*r*dt
        end
         x = x + f(x,pest,t)*dt + tmp + noise # evolution guided by observations
 
@@ -85,7 +85,7 @@ g(u,p,t) = p[3] .- 0.2*(1 .-sin.(u))
   u0 = 1.1
 
   # forward kernel
-  sdekernel = MitosisStochasticDiffEq.SDEKernel(f,g,trange,pest)
+  sdekernel = MSDE.SDEKernel(f,g,trange,pest)
 
   # initial values for ODE
   mynames = (:logscale, :μ, :Σ);
@@ -93,13 +93,13 @@ g(u,p,t) = p[3] .- 0.2*(1 .-sin.(u))
   NT = NamedTuple{mynames}(myvalues)
 
   # backward kernel
-  kerneltilde = MitosisStochasticDiffEq.SDEKernel(Mitosis.AffineMap(B, β), Mitosis.ConstantMap(σ̃), trange, plin)
-  message, backward = MitosisStochasticDiffEq.backwardfilter(kerneltilde, NT)
+  kerneltilde = MSDE.SDEKernel(Mitosis.AffineMap(B, β), Mitosis.ConstantMap(σ̃), trange, plin)
+  message, backward = MSDE.backwardfilter(kerneltilde, NT)
 
   x0 = randn()
   ll0 = randn()
 
-  solfw, ll = MitosisStochasticDiffEq.forwardguiding(sdekernel, message, (x0, ll0),
+  solfw, ll = MSDE.forwardguiding(sdekernel, message, (x0, ll0),
             Z=nothing; save_noise=true)
 
 
@@ -129,12 +129,12 @@ g(u,p,t) = p[3] .- 0.2*(1 .-sin.(u))
   NG = NoiseGrid(t,W1)
 
   # backward kernel
-  kerneltilde = MitosisStochasticDiffEq.SDEKernel(Mitosis.AffineMap(plin[1], plin[2]), Mitosis.ConstantMap(plin[3]), trange, plin)
-  message, backward = MitosisStochasticDiffEq.backwardfilter(kerneltilde, NT)
+  kerneltilde = MSDE.SDEKernel(Mitosis.AffineMap(plin[1], plin[2]), Mitosis.ConstantMap(plin[3]), trange, plin)
+  message, backward = MSDE.backwardfilter(kerneltilde, NT)
 
   x0 = randn(dim)
   ll0 = randn()
-  solfw, ll = MitosisStochasticDiffEq.forwardguiding(sdekernel, message, (x0, ll0), NG)
+  solfw, ll = MSDE.forwardguiding(sdekernel, message, (x0, ll0), NG)
 
   ps = message.soldis
   solfw2, ll2 = forwardguiding(plin, pest, message.ts, (x0, ll0), ps, W)
@@ -155,13 +155,13 @@ g(u,p,t) = p[3] .- 0.2*(1 .-sin.(u))
   plin = [randn(dim,dim), randn(dim), randn(dim,m)] # B, β, σtil
 
   # backward kernel
-  kerneltilde = MitosisStochasticDiffEq.SDEKernel(Mitosis.AffineMap(plin[1], plin[2]), Mitosis.ConstantMap(plin[3]), trange, plin)
-  message, backward = MitosisStochasticDiffEq.backwardfilter(kerneltilde, NT)
+  kerneltilde = MSDE.SDEKernel(Mitosis.AffineMap(plin[1], plin[2]), Mitosis.ConstantMap(plin[3]), trange, plin)
+  message, backward = MSDE.backwardfilter(kerneltilde, NT)
 
   x0 = randn(dim)
   ll0 = randn()
 
-  solfw, ll = MitosisStochasticDiffEq.forwardguiding(sdekernel, message, (x0, ll0); save_noise=true)
+  solfw, ll = MSDE.forwardguiding(sdekernel, message, (x0, ll0); save_noise=true)
 
   Ws = Array(solfw.W)
   dWs = Ws[1:dim,2:end]-Ws[1:dim,1:end-1]
@@ -192,7 +192,7 @@ end
   u0 = 1.1
 
   # forward kernel
-  sdekernel = MitosisStochasticDiffEq.SDEKernel(f,g,trange,pest)
+  sdekernel = MSDE.SDEKernel(f,g,trange,pest)
 
   # initial values for ODE
   mynames = (:logscale, :μ, :Σ);
@@ -200,13 +200,13 @@ end
   NT = NamedTuple{mynames}(myvalues)
 
   # backward kernel
-  kerneltilde = MitosisStochasticDiffEq.SDEKernel(Mitosis.AffineMap(B, β), Mitosis.ConstantMap(σ̃), trange, plin)
-  message, backward = MitosisStochasticDiffEq.backwardfilter(kerneltilde, NT)
+  kerneltilde = MSDE.SDEKernel(Mitosis.AffineMap(B, β), Mitosis.ConstantMap(σ̃), trange, plin)
+  message, backward = MSDE.backwardfilter(kerneltilde, NT)
 
   x0 = randn()
   ll0 = randn()
 
-  solfw, ll = MitosisStochasticDiffEq.forwardguiding(sdekernel, message, (x0, ll0),
+  solfw, ll = MSDE.forwardguiding(sdekernel, message, (x0, ll0),
             Z=nothing; save_noise=true, inplace=false)
 
 
@@ -236,12 +236,12 @@ end
   NG = NoiseGrid(t,W1)
 
   # backward kernel
-  kerneltilde = MitosisStochasticDiffEq.SDEKernel(Mitosis.AffineMap(plin[1], plin[2]), Mitosis.ConstantMap(plin[3]), trange, plin)
-  message, backward = MitosisStochasticDiffEq.backwardfilter(kerneltilde, NT)
+  kerneltilde = MSDE.SDEKernel(Mitosis.AffineMap(plin[1], plin[2]), Mitosis.ConstantMap(plin[3]), trange, plin)
+  message, backward = MSDE.backwardfilter(kerneltilde, NT)
 
   x0 = randn(dim)
   ll0 = randn()
-  solfw, ll = MitosisStochasticDiffEq.forwardguiding(sdekernel, message, (x0, ll0), NG, inplace=false)
+  solfw, ll = MSDE.forwardguiding(sdekernel, message, (x0, ll0), NG, inplace=false)
 
   ps = message.soldis
   solfw2, ll2 = forwardguiding(plin, pest, message.ts, (x0, ll0), ps, W)
@@ -262,13 +262,13 @@ end
   plin = [randn(dim,dim), randn(dim), randn(dim,m)] # B, β, σtil
 
   # backward kernel
-  kerneltilde = MitosisStochasticDiffEq.SDEKernel(Mitosis.AffineMap(plin[1], plin[2]), Mitosis.ConstantMap(plin[3]), trange, plin)
-  message, backward = MitosisStochasticDiffEq.backwardfilter(kerneltilde, NT)
+  kerneltilde = MSDE.SDEKernel(Mitosis.AffineMap(plin[1], plin[2]), Mitosis.ConstantMap(plin[3]), trange, plin)
+  message, backward = MSDE.backwardfilter(kerneltilde, NT)
 
   x0 = randn(dim)
   ll0 = randn()
 
-  solfw, ll = MitosisStochasticDiffEq.forwardguiding(sdekernel, message, (x0, ll0); save_noise=true, inplace=false)
+  solfw, ll = MSDE.forwardguiding(sdekernel, message, (x0, ll0); save_noise=true, inplace=false)
 
   Ws = Array(solfw.W)
   dWs = Ws[1:dim,2:end]-Ws[1:dim,1:end-1]
@@ -302,7 +302,7 @@ end
   u0 = 1.1
 
   # forward kernel
-  sdekernel = MitosisStochasticDiffEq.SDEKernel(f,g,trange,pest)
+  sdekernel = MSDE.SDEKernel(f,g,trange,pest)
 
   # initial values for ODE
   mynames = (:logscale, :μ, :Σ);
@@ -310,8 +310,8 @@ end
   NT = NamedTuple{mynames}(myvalues)
 
   # backward kernel
-  kerneltilde = MitosisStochasticDiffEq.SDEKernel(Mitosis.AffineMap(B, β), Mitosis.ConstantMap(σ̃), trange, plin)
-  message, backward = MitosisStochasticDiffEq.backwardfilter(kerneltilde, NT)
+  kerneltilde = MSDE.SDEKernel(Mitosis.AffineMap(B, β), Mitosis.ConstantMap(σ̃), trange, plin)
+  message, backward = MSDE.backwardfilter(kerneltilde, NT)
 
 
   # define NoiseGrid
@@ -322,11 +322,11 @@ end
   x0 = randn()
   ll0 = randn()
 
-  solfw, ll = MitosisStochasticDiffEq.forwardguiding(sdekernel, message, (x0, ll0),
+  solfw, ll = MSDE.forwardguiding(sdekernel, message, (x0, ll0),
             W; alg=LambaEM(), dt=dt, isadaptive=false)
-  solfw2, ll2 = MitosisStochasticDiffEq.forwardguiding(sdekernel, message, (x0, ll0),
+  solfw2, ll2 = MSDE.forwardguiding(sdekernel, message, (x0, ll0),
             W; alg=LambaEM(), dt=dt, isadaptive=true)
-  solfw3, ll3 = MitosisStochasticDiffEq.forwardguiding(sdekernel, message, (x0, ll0),
+  solfw3, ll3 = MSDE.forwardguiding(sdekernel, message, (x0, ll0),
             W; alg=SOSRI(), dt=dt, isadaptive=true)
 
   @test isapprox(ll, ll2, rtol=1e-1)
@@ -365,7 +365,7 @@ end
   u0 = 1.1
 
   # forward kernel
-  sdekernel = MitosisStochasticDiffEq.SDEKernel(f,g,trange,pest)
+  sdekernel = MSDE.SDEKernel(f,g,trange,pest)
 
   # initial values for ODE
   mynames = (:logscale, :μ, :Σ);
@@ -373,17 +373,17 @@ end
   NT = NamedTuple{mynames}(myvalues)
 
   # backward kernel
-  kerneltilde = MitosisStochasticDiffEq.SDEKernel(Mitosis.AffineMap(B, β), Mitosis.ConstantMap(σ̃), trange, plin)
-  message, backward = MitosisStochasticDiffEq.backwardfilter(kerneltilde, NT, apply_timechange=true)
+  kerneltilde = MSDE.SDEKernel(Mitosis.AffineMap(B, β), Mitosis.ConstantMap(σ̃), trange, plin)
+  message, backward = MSDE.backwardfilter(kerneltilde, NT, apply_timechange=true)
 
   x0 = randn()
   ll0 = randn()
 
-  solfw, ll = MitosisStochasticDiffEq.forwardguiding(sdekernel, message, (x0, ll0);
+  solfw, ll = MSDE.forwardguiding(sdekernel, message, (x0, ll0);
     isadaptive=false)
 
   @test isapprox(solfw.t, message.ts, rtol=1e-10)
-  @test isapprox(solfw.t, MitosisStochasticDiffEq.timechange(trange), rtol=1e-10)
+  @test isapprox(solfw.t, MSDE.timechange(trange), rtol=1e-10)
   @test length(solfw.t) == length(trange)
 
 end
@@ -410,7 +410,7 @@ end
   u0 = 1.1
 
   # forward kernel
-  sdekernel = MitosisStochasticDiffEq.SDEKernel(f,g,trange,pest)
+  sdekernel = MSDE.SDEKernel(f,g,trange,pest)
 
   # initial values for ODE
   mynames = (:logscale, :μ, :Σ);
@@ -418,8 +418,8 @@ end
   NT = NamedTuple{mynames}(myvalues)
 
   # backward kernel
-  kerneltilde = MitosisStochasticDiffEq.SDEKernel(Mitosis.AffineMap(B, β), Mitosis.ConstantMap(σ̃), trange, plin)
-  message, backward = MitosisStochasticDiffEq.backwardfilter(kerneltilde, NT)
+  kerneltilde = MSDE.SDEKernel(Mitosis.AffineMap(B, β), Mitosis.ConstantMap(σ̃), trange, plin)
+  message, backward = MSDE.backwardfilter(kerneltilde, NT)
 
 
   # define NoiseGrid
@@ -430,9 +430,9 @@ end
   ll0 = randn()
 
   # test two subsequent evaluations with same Brownian motion given by NoiseGrid
-  solfw, ll = MitosisStochasticDiffEq.forwardguiding(sdekernel, message, (x0, ll0),
+  solfw, ll = MSDE.forwardguiding(sdekernel, message, (x0, ll0),
             W; alg=EM(), dt=dt)
-  solfw2, ll2 = MitosisStochasticDiffEq.forwardguiding(sdekernel, message, (x0, ll0),
+  solfw2, ll2 = MSDE.forwardguiding(sdekernel, message, (x0, ll0),
             W; alg=EM(), dt=dt)
 
   @test isapprox(ll, ll2, rtol=1e-14)
@@ -441,12 +441,12 @@ end
   @test isapprox(solfw.W.W, W.W, rtol=1e-14)
 
   # test pCN with \rho = 1
-  solfw, ll = MitosisStochasticDiffEq.forwardguiding(sdekernel, message, (x0, ll0)
+  solfw, ll = MSDE.forwardguiding(sdekernel, message, (x0, ll0)
              ; alg=EM(), dt=dt, save_noise=true)
 
   Z = pCN(solfw.W, 1.0)
 
-  solfw2, ll2 = MitosisStochasticDiffEq.forwardguiding(sdekernel, message, (x0, ll0),
+  solfw2, ll2 = MSDE.forwardguiding(sdekernel, message, (x0, ll0),
             Z; alg=EM(), dt=dt)
 
   @test isapprox(ll, ll2, rtol=1e-14)
@@ -461,14 +461,14 @@ end
   dt = 0.0001
   trange = tstart:dt:tend
   # backward kernel
-  kerneltilde = MitosisStochasticDiffEq.SDEKernel(Mitosis.AffineMap(B, β), Mitosis.ConstantMap(σ̃), trange, plin)
-  message, backward = MitosisStochasticDiffEq.backwardfilter(kerneltilde, NT)
-  solfw, ll = MitosisStochasticDiffEq.forwardguiding(sdekernel, message, (x0, ll0)
+  kerneltilde = MSDE.SDEKernel(Mitosis.AffineMap(B, β), Mitosis.ConstantMap(σ̃), trange, plin)
+  message, backward = MSDE.backwardfilter(kerneltilde, NT)
+  solfw, ll = MSDE.forwardguiding(sdekernel, message, (x0, ll0)
              ; alg=EM(), dt=dt, save_noise=true)
 
   Z = pCN(solfw.W, ρ)
 
-  solfw2, ll2 = MitosisStochasticDiffEq.forwardguiding(sdekernel, message, (x0, ll0),
+  solfw2, ll2 = MSDE.forwardguiding(sdekernel, message, (x0, ll0),
             Z; alg=EM(), dt=dt)
 
   computedW(W, indx, dt) = (W[indx+1][1]-W[indx][1])/sqrt(dt) # likelihood part can be ignored
@@ -513,15 +513,15 @@ end
   trange = tstart:dt:tend
 
   # forward kernels
-  κ1 = MitosisStochasticDiffEq.SDEKernel(f, g, trange, θ0)
-  κ2 = MitosisStochasticDiffEq.SDEKernel(f, g, trange, θ0, nothing, true)
+  κ1 = MSDE.SDEKernel(f, g, trange, θ0)
+  κ2 = MSDE.SDEKernel(f, g, trange, θ0, nothing, true)
   # backward kernel
-  κ̃ = MitosisStochasticDiffEq.SDEKernel(Mitosis.AffineMap(θlin[1], θlin[2]), Mitosis.ConstantMap(θlin[3]), trange, θlin)
+  κ̃ = MSDE.SDEKernel(Mitosis.AffineMap(θlin[1], θlin[2]), Mitosis.ConstantMap(θlin[3]), trange, θlin)
 
   # forward sample
-  x, xT = MitosisStochasticDiffEq.sample(κ1, u0; save_noise=true)
+  x, xT = MSDE.sample(κ1, u0; save_noise=true)
   Z = NoiseWrapper(x.W)
-  x2, xT2 = MitosisStochasticDiffEq.sample(κ2, u0; Z=Z)
+  x2, xT2 = MSDE.sample(κ2, u0; Z=Z)
 
   @test x.u ≈ x2.u
   @test xT ≈ xT2
@@ -532,18 +532,18 @@ end
   P = randn(d,d)
   gaussian = WGaussian{(:μ,:Σ,:c)}(ν, P, logscale)
 
-  message, backward = MitosisStochasticDiffEq.backwardfilter(κ̃, gaussian)
+  message, backward = MSDE.backwardfilter(κ̃, gaussian)
 
   # forward guiding
-  κg1 = MitosisStochasticDiffEq.SDEKernel(f, g, trange, θ)
-  κg2 = MitosisStochasticDiffEq.SDEKernel(f, g, trange, θ, nothing, true)
+  κg1 = MSDE.SDEKernel(f, g, trange, θ)
+  κg2 = MSDE.SDEKernel(f, g, trange, θ, nothing, true)
 
   x0 = randn(d)
   ll0 = randn()
 
-  solfw1, ll1 = MitosisStochasticDiffEq.forwardguiding(κg1, message, (x0, ll0); save_noise=true)
+  solfw1, ll1 = MSDE.forwardguiding(κg1, message, (x0, ll0); save_noise=true)
   Z = pCN(solfw1.W, 1.0)
-  solfw2, ll2 = MitosisStochasticDiffEq.forwardguiding(κg2, message, (x0, ll0), Z)
+  solfw2, ll2 = MSDE.forwardguiding(κg2, message, (x0, ll0), Z)
 
   @test ll1 ≈ ll2
   @test isapprox(solfw1.u, solfw2.u, rtol=1e-14)
@@ -552,17 +552,17 @@ end
 
   # check guiding with matrix-valued diffusion
   gmat(u,θ,t) = Diagonal(θ[2])
-  kg3 = MitosisStochasticDiffEq.SDEKernel(f, gmat, trange, θ, Σ(θ), true)
+  kg3 = MSDE.SDEKernel(f, gmat, trange, θ, Σ(θ), true)
 
   # inplace=true
   Z = pCN(solfw1.W, 1.0)
-  solfw3, ll3 = MitosisStochasticDiffEq.forwardguiding(kg3, message, (x0, ll0), Z)
+  solfw3, ll3 = MSDE.forwardguiding(kg3, message, (x0, ll0), Z)
   @test ll1 ≈ ll3
   @test isapprox(solfw1.u, solfw3.u, rtol=1e-14)
 
   # inplace=false
   Z = pCN(solfw1.W, 1.0)
-  solfw3, ll3 = MitosisStochasticDiffEq.forwardguiding(kg3, message, (x0, ll0), Z, inplace=false)
+  solfw3, ll3 = MSDE.forwardguiding(kg3, message, (x0, ll0), Z, inplace=false)
   @test ll1 ≈ ll3
   @test isapprox(solfw1.u, solfw3.u, rtol=1e-14)
 
