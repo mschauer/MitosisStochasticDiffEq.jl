@@ -1,9 +1,11 @@
 import MitosisStochasticDiffEq as MSDE
+using StochasticDiffEq
 using Mitosis
 using LinearAlgebra
 using SparseArrays
 using DiffEqNoiseProcess
 using Test, Random
+
 
 """
 forwardsample(f, g, p, s, W, x) using the Euler-Maruyama scheme
@@ -51,7 +53,8 @@ end
 
 
 @testset "multivariate sampling tests" begin
-  Random.seed!(12345)
+  seed = 12345
+  Random.seed!(seed)
   d = 2
   u0 = randn(2)
   θlin = (randn(d,d), randn(d), Diagonal([0.1, 0.1]))
@@ -86,19 +89,121 @@ end
   k3 = MSDE.SDEKernel(f!,g!,trange,θlin,A)
   k4 = MSDE.SDEKernel(Mitosis.AffineMap(θlin[1], θlin[2]), Mitosis.ConstantMap(θlin[3]), trange, θlin, Σ(θlin))
 
-  sol1, solend1 = MSDE.sample(k1, u0, save_noise=true)
-  Z = pCN(sol1.W, 1.0)
-  sol2, solend2 = MSDE.sample(k2, u0, Z=Z, save_noise=true)
-  Z = pCN(sol1.W, 1.0)
-  sol3, solend3 = MSDE.sample(k3, u0, Z=Z)
-  Z = pCN(sol1.W, 1.0)
-  sol4, solend4 = MSDE.sample(k4, u0, Z=Z)
+  @testset "StochasticDiffEq EM() solver" begin
+    sol1, solend1 = MSDE.sample(k1, u0, EM(false), save_noise=true)
+    Z = pCN(sol1.W, 1.0)
+    sol2, solend2 = MSDE.sample(k2, u0, EM(false), Z, save_noise=true)
+    Z = pCN(sol1.W, 1.0)
+    sol3, solend3 = MSDE.sample(k3, u0, EM(false), Z)
+    Z = pCN(sol1.W, 1.0)
+    sol4, solend4 = MSDE.sample(k4, u0, EM(false), Z)
 
-  @show solend1
-  @test isapprox(sol1.u, sol2.u, atol=1e-12)
-  @test isapprox(solend1, solend2, atol=1e-12)
-  @test isapprox(sol1.u, sol3.u, atol=1e-12)
-  @test isapprox(solend1, solend3, atol=1e-12)
-  @test isapprox(sol1.u, sol4.u, atol=1e-12)
-  @test isapprox(solend1, solend4, atol=1e-12)
+    #@show solend1
+    @test isapprox(sol1.u, sol2.u, atol=1e-12)
+    @test isapprox(solend1, solend2, atol=1e-12)
+    @test isapprox(sol1.u, sol3.u, atol=1e-12)
+    @test isapprox(solend1, solend3, atol=1e-12)
+    @test isapprox(sol1.u, sol4.u, atol=1e-12)
+    @test isapprox(solend1, solend4, atol=1e-12)
+  end
+
+  @testset "internal solver" begin
+    @testset "without passing a noise" begin
+      Random.seed!(seed)
+      sol1, solend1 = MSDE.sample(k1, u0, MSDE.EulerMaruyama!(), save=true)
+      Random.seed!(seed)
+      sol2, solend2 = MSDE.sample(k2, u0, MSDE.EulerMaruyama!(), save=true)
+      Random.seed!(seed)
+      @test_broken ol3, solend3 = MSDE.sample(k3, u0, MSDE.EulerMaruyama!(), save=true)
+      Random.seed!(seed) # inplace must be written out manually
+      sol4, solend4 = MSDE.sample(k4, u0, MSDE.EulerMaruyama!(), save=true)
+
+      @test solend1[1] == length(trange)
+      @test solend1[2] == trange[end]
+      @test solend1 == solend2
+      @test_broken solend1 == solend3
+      @test solend1 == solend4
+
+      Random.seed!(seed)
+      sol5, solend5 = MSDE.sample(k1, u0, MSDE.EulerMaruyama!(), save=false)
+      @test solend1 == solend5
+      @test sol5 === nothing
+    end
+
+    @testset "passing a noise grid" begin
+      # pass noise process and compare with EM()
+      Ws = cumsum([[zero(u0)];[sqrt(trange[i+1]-ti)*randn(size(u0))
+              for (i,ti) in enumerate(trange[1:end-1])]])
+      NG = NoiseGrid(trange,Ws)
+
+      solEM, solendEM = MSDE.sample(k1, u0, EM(false), NG)
+      sol1, solend1 = MSDE.sample(k1, u0, MSDE.EulerMaruyama!(), NG)
+      sol2, solend2 = MSDE.sample(k2, u0, MSDE.EulerMaruyama!(), NG)
+      @test_broken ol3, solend3 = MSDE.sample(k3, u0, MSDE.EulerMaruyama!(), NG)
+      sol4, solend4 = MSDE.sample(k4, u0, MSDE.EulerMaruyama!(), NG)
+
+      @test getindex.(sol1,3) ≈ solEM.u rtol=1e-12
+      @test solendEM ≈ solend1[3] rtol=1e-12
+      @test solendEM ≈ solend2[3] rtol=1e-12
+      @test_broken solendEM ≈ solend3[3] rtol=1e-12
+      @test solendEM ≈ solend4[3] rtol=1e-12
+    end
+
+    @testset "passing the noise values" begin
+      # pass noise process and compare with EM()
+      Ws = cumsum([[zero(u0)];[sqrt(trange[i+1]-ti)*randn(size(u0))
+              for (i,ti) in enumerate(trange[1:end-1])]])
+      NG = NoiseGrid(trange,Ws)
+
+      solEM, solendEM = MSDE.sample(k1, u0, EM(false), NG)
+      sol1, solend1 = MSDE.sample(k1, u0, MSDE.EulerMaruyama!(), Ws)
+      sol2, solend2 = MSDE.sample(k2, u0, MSDE.EulerMaruyama!(), Ws)
+      @test_broken ol3, solend3 = MSDE.sample(k3, u0, MSDE.EulerMaruyama!(), Ws)
+      sol4, solend4 = MSDE.sample(k4, u0, MSDE.EulerMaruyama!(), Ws)
+
+      @test getindex.(sol1,3) ≈ solEM.u rtol=1e-12
+      @test solendEM ≈ solend1[3] rtol=1e-12
+      @test solendEM ≈ solend2[3] rtol=1e-12
+      @test_broken solendEM ≈ solend3[3] rtol=1e-12
+      @test solendEM ≈ solend4[3] rtol=1e-12
+    end
+
+    @testset "custom P" begin
+      # checks that defining and passing P manually works
+
+      struct customP{θType}
+        θ::θType
+      end
+
+      function MSDE.tangent!(du, u, dz, P::customP)
+        du[3] .= (P.θ[1]*u[3]+P.θ[2])*dz[2] + P.θ[3]*dz[3]
+
+        (dz[1], dz[2], du[3])
+      end
+
+      function MSDE.exponential_map!(u, du, P::customP)
+        x = u[3]
+        @. x += du[3]
+        (u[1] + du[1], u[2] + du[2], x)
+      end
+
+      # pass noise process and compare with EM()
+      Ws = cumsum([[zero(u0)];[sqrt(trange[i+1]-ti)*randn(size(u0))
+              for (i,ti) in enumerate(trange[1:end-1])]])
+      NG = NoiseGrid(trange,Ws)
+
+      solEM, solendEM = MSDE.sample(k1, u0, EM(false), NG)
+      sol1, solend1 = MSDE.sample(k1, u0, MSDE.EulerMaruyama!(), Ws, P=customP(θlin))
+      sol2, solend2 = MSDE.sample(k2, u0, MSDE.EulerMaruyama!(), Ws, P=customP(θlin))
+      sol3, solend3 = MSDE.sample(k3, u0, MSDE.EulerMaruyama!(), Ws, P=customP(θlin))
+      sol4, solend4 = MSDE.sample(k4, u0, MSDE.EulerMaruyama!(), Ws)
+
+      @test getindex.(sol1,3) ≈ solEM.u rtol=1e-12
+      @test solendEM ≈ solend1[3] rtol=1e-12
+      @test solendEM ≈ solend2[3] rtol=1e-12
+      @test solendEM ≈ solend3[3] rtol=1e-12
+      @test solendEM ≈ solend4[3] rtol=1e-12
+    end
+
+  end
 end

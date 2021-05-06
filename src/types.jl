@@ -191,3 +191,16 @@ function Regression!(sdekernel,yprototype;kwargs...)
   iip=DiffEqBase.isinplace(sdekernel.g,4)
   Regression!{iip}(sdekernel,yprototype;kwargs...)
 end
+
+# internal solvers
+abstract type AbstractInternalSolver end
+
+struct EulerMaruyama! <: AbstractInternalSolver end
+
+struct DefaultForwardGuidingP end
+
+"""
+    tangent!(du, u, dz, P)
+"""
+function tangent!
+end
