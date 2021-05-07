@@ -201,6 +201,9 @@ struct DefaultForwardGuidingP end
 
 """
     tangent!(du, u, dz, P)
+
+!! May change `du`, but has to return it. !!
+
 """
 function tangent!
 end
