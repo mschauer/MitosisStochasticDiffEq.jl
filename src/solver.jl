@@ -34,6 +34,9 @@ function exponential_map!(x::Union{SArray,Number}, dx, P)
   x + dx
 end
 
+function saveit!(uu::Vector, u::Tuple{Int, Float64, T}, P) where {T}
+  push!(uu, (u[1], u[2], copy(u[3])))
+end
 saveit!(uu, u, P) = push!(uu, deepcopy(u))
 saveit!(::Nothing, u, P) = nothing
 
