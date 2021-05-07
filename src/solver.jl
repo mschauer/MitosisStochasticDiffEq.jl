@@ -53,9 +53,9 @@ end
 function solve_inner!(solver::EulerMaruyama!, uu, u, du, Z, dz, P)
   while true
     saveit!(uu, u, P)
-    dz = dZ!(u, dz, Z, P)
-    du = tangent!(du, u, dz, P)
-    u = exponential_map!(u, du, P)
+    dz = dZ!(u, dz, Z, P) # fetch integrator increments dz (e.g. a pair of time increment and noise increments)
+    du = tangent!(du, u, dz, P) # compute time scaled stochastic tangent at current 
+    u = exponential_map!(u, du, P) # move along a geodesic in tangent direction on the manifold
     endcondition(uu, u, Z, P) && break
   end
   uu, u
