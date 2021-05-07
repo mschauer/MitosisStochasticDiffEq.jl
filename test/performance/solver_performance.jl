@@ -5,19 +5,30 @@ using LinearAlgebra
 using BenchmarkTools
 using MitosisStochasticDiffEq: NoiseGrid, EM
 
+#=
+function MSDE.saveit!(uu::Vector, u::Tuple{Int64, Float64, Vector{Float64}}, P)
+  push!(uu, (u[1], u[2], copy(u[3])))
+end
+=#
+
 # define SDE function
 f(u,p,t) = p[1]*u + p[2]
 g(u,p,t) = p[3]*u
 
-f!(du,u,p,t) = (du .= p[1]*u + p[2])
-g!(du,u,p,t) = (@. du = p[3]*u)
+function f!(du, u, p, t) 
+  mul!(du, p[1], u)
+  @. du += p[2] 
+  du
+end
+
+g!(du, u, p, t) = (@. du = p[3]*u)
 function gstep!(dx, _, u, p, t, dw, _)
   @. dx += (p[3]*u)*dw 
 end
 # time span
 tstart = 0.0
 tend = 1.0
-dt = 0.005
+dt = 0.0001
 trange = tstart:dt:tend
 
 B, β, σ̃ = -fill(0.1,1,1), [0.2], 1.3
@@ -88,3 +99,5 @@ u = (1, 0.0, copy(u0))
 dz = (0, 0.0, [0.0])
 @btime MSDE.solve!(MSDE.EulerMaruyama!(), nothing, deepcopy(u), Z, customP(p))
 ;
+
+#ProfileView.@profview @btime MSDE.sample(k_iip2, u0, MSDE.EulerMaruyama!(), Ws)
