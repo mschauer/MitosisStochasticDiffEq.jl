@@ -42,10 +42,12 @@ function MSDE.dZ!(u, dz, Z, P::customP)
   (Z[i+1][1] - Z[i][1], Z[i+1][2] - Z[i][2], dw)
 end
 
+# mul!(C, A, B, α, β) -> C = A B α + C β.
 
 @inline function MSDE.tangent!(du, u, dz, P::customP)
   x = du[3] 
-  @. x = P.θ[1][]*u[3]*dz[2] + P.θ[2]*dz[2] + P.θ[3]*u[3]*dz[3] 
+  mul!(x, P.θ[1], u[3], dz[2], false)
+  @. x += P.θ[2]*dz[2] + P.θ[3]*u[3]*dz[3] 
   (dz[1], dz[2], x)
 end
 
