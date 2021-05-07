@@ -64,11 +64,23 @@ end
   f(u,p,t) = p[1]*u + p[2]
   f!(du,u,p,t) = (du .= p[1]*u + p[2])
   gvec(u,p,t) = diag(p[3])
+  function gvec!(du,u,p,t)
+    du[1] = p[3][1,1]
+    du[2] = p[3][2,2]
+  end
   g(u,p,t) = p[3]
   # Make `g` write the sparse matrix values
   function g!(du,u,p,t)
     du[1,1] = p[3][1,1]
     du[2,2] = p[3][2,2]
+  end
+
+  function gstepvec!(dx, _, u, p, t, dw, _)
+    dx .+= diag(p[3]).*dw
+  end
+
+  function gstep!(dx, _, u, p, t, dw, _)
+    dx .+= p[3]*dw
   end
 
   # Define a sparse matrix by making a dense matrix and setting some values as not zero
@@ -88,6 +100,8 @@ end
   k2 = MSDE.SDEKernel(f,g,trange,θlin,Σ(θlin))
   k3 = MSDE.SDEKernel(f!,g!,trange,θlin,A)
   k4 = MSDE.SDEKernel(Mitosis.AffineMap(θlin[1], θlin[2]), Mitosis.ConstantMap(θlin[3]), trange, θlin, Σ(θlin))
+  k5 = MSDE.SDEKernel!(f!,gvec!,gstepvec!,trange,θlin; ws = copy(u0))
+  k6 = MSDE.SDEKernel!(f!,g!,gstep!,trange,θlin,A; ws = copy(A))
 
   @testset "StochasticDiffEq EM() solver" begin
     sol1, solend1 = MSDE.sample(k1, u0, EM(false), save_noise=true)
@@ -97,6 +111,10 @@ end
     sol3, solend3 = MSDE.sample(k3, u0, EM(false), Z)
     Z = pCN(sol1.W, 1.0)
     sol4, solend4 = MSDE.sample(k4, u0, EM(false), Z)
+    Z = pCN(sol1.W, 1.0)
+    sol5, solend5 = MSDE.sample(k5, u0, EM(false), Z)
+    Z = pCN(sol1.W, 1.0)
+    sol6, solend6 = MSDE.sample(k6, u0, EM(false), Z)
 
     #@show solend1
     @test isapprox(sol1.u, sol2.u, atol=1e-12)
@@ -105,6 +123,10 @@ end
     @test isapprox(solend1, solend3, atol=1e-12)
     @test isapprox(sol1.u, sol4.u, atol=1e-12)
     @test isapprox(solend1, solend4, atol=1e-12)
+    @test isapprox(sol1.u, sol5.u, atol=1e-12)
+    @test isapprox(solend1, solend5, atol=1e-12)
+    @test isapprox(sol1.u, sol6.u, atol=1e-12)
+    @test isapprox(solend1, solend6, atol=1e-12)
   end
 
   @testset "internal solver" begin
@@ -114,15 +136,22 @@ end
       Random.seed!(seed)
       sol2, solend2 = MSDE.sample(k2, u0, MSDE.EulerMaruyama!(), save=true)
       Random.seed!(seed)
+      # inplace must be written out manually
       @test_broken ol3, solend3 = MSDE.sample(k3, u0, MSDE.EulerMaruyama!(), save=true)
-      Random.seed!(seed) # inplace must be written out manually
+      Random.seed!(seed)
       sol4, solend4 = MSDE.sample(k4, u0, MSDE.EulerMaruyama!(), save=true)
+      Random.seed!(seed)
+      sol5, solend5 = MSDE.sample(k5, u0, MSDE.EulerMaruyama!(), save=true)
+      Random.seed!(seed)
+      sol6, solend6 = MSDE.sample(k6, u0, MSDE.EulerMaruyama!(), save=true)
 
       @test solend1[1] == length(trange)
       @test solend1[2] == trange[end]
       @test solend1 == solend2
       @test_broken solend1 == solend3
       @test solend1 == solend4
+      @test solend1 == solend5
+      @test solend1 == solend6
 
       Random.seed!(seed)
       sol5, solend5 = MSDE.sample(k1, u0, MSDE.EulerMaruyama!(), save=false)
@@ -141,12 +170,16 @@ end
       sol2, solend2 = MSDE.sample(k2, u0, MSDE.EulerMaruyama!(), NG)
       @test_broken ol3, solend3 = MSDE.sample(k3, u0, MSDE.EulerMaruyama!(), NG)
       sol4, solend4 = MSDE.sample(k4, u0, MSDE.EulerMaruyama!(), NG)
+      sol5, solend5 = MSDE.sample(k5, u0, MSDE.EulerMaruyama!(), NG)
+      sol6, solend6 = MSDE.sample(k6, u0, MSDE.EulerMaruyama!(), NG)
 
       @test getindex.(sol1,3) ≈ solEM.u rtol=1e-12
       @test solendEM ≈ solend1[3] rtol=1e-12
       @test solendEM ≈ solend2[3] rtol=1e-12
       @test_broken solendEM ≈ solend3[3] rtol=1e-12
       @test solendEM ≈ solend4[3] rtol=1e-12
+      @test solendEM ≈ solend5[3] rtol=1e-12
+      @test solendEM ≈ solend6[3] rtol=1e-12
     end
 
     @testset "passing the noise values" begin
@@ -160,12 +193,16 @@ end
       sol2, solend2 = MSDE.sample(k2, u0, MSDE.EulerMaruyama!(), Ws)
       @test_broken ol3, solend3 = MSDE.sample(k3, u0, MSDE.EulerMaruyama!(), Ws)
       sol4, solend4 = MSDE.sample(k4, u0, MSDE.EulerMaruyama!(), Ws)
+      sol5, solend5 = MSDE.sample(k5, u0, MSDE.EulerMaruyama!(), Ws)
+      sol6, solend6 = MSDE.sample(k6, u0, MSDE.EulerMaruyama!(), Ws)
 
       @test getindex.(sol1,3) ≈ solEM.u rtol=1e-12
       @test solendEM ≈ solend1[3] rtol=1e-12
       @test solendEM ≈ solend2[3] rtol=1e-12
       @test_broken solendEM ≈ solend3[3] rtol=1e-12
       @test solendEM ≈ solend4[3] rtol=1e-12
+      @test solendEM ≈ solend5[3] rtol=1e-12
+      @test solendEM ≈ solend6[3] rtol=1e-12
     end
 
     @testset "custom P" begin
@@ -197,12 +234,16 @@ end
       sol2, solend2 = MSDE.sample(k2, u0, MSDE.EulerMaruyama!(), Ws, P=customP(θlin))
       sol3, solend3 = MSDE.sample(k3, u0, MSDE.EulerMaruyama!(), Ws, P=customP(θlin))
       sol4, solend4 = MSDE.sample(k4, u0, MSDE.EulerMaruyama!(), Ws)
+      sol5, solend5 = MSDE.sample(k5, u0, MSDE.EulerMaruyama!(), Ws)
+      sol6, solend6 = MSDE.sample(k6, u0, MSDE.EulerMaruyama!(), Ws)
 
       @test getindex.(sol1,3) ≈ solEM.u rtol=1e-12
       @test solendEM ≈ solend1[3] rtol=1e-12
       @test solendEM ≈ solend2[3] rtol=1e-12
       @test solendEM ≈ solend3[3] rtol=1e-12
       @test solendEM ≈ solend4[3] rtol=1e-12
+      @test solendEM ≈ solend5[3] rtol=1e-12
+      @test solendEM ≈ solend6[3] rtol=1e-12
     end
 
   end
