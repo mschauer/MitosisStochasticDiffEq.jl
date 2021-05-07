@@ -1,4 +1,5 @@
 import MitosisStochasticDiffEq as MSDE
+using StochasticDiffEq
 using Mitosis
 using Test, Random
 using Statistics

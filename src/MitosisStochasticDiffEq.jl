@@ -22,5 +22,6 @@ include("guiding.jl")
 include("regression.jl")
 include("utils.jl")
 include("derivative_utils.jl")
+include("solver.jl")
 
 end

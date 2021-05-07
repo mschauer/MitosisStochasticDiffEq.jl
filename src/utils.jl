@@ -35,3 +35,37 @@ function convert_message(message, F1::CovarianceFilter, F2::InformationFilter)
 
   return Message(ktilde, ts, soldis, nothing)
 end
+
+
+# handle noise conversion between solvers
+function compute_Z(::Nothing, ::Nothing, trange, u0)
+    n = length(trange)
+
+    return collect(zip(1:n, trange, cumsum([[zero(u0)];[sqrt(trange[i+1]-ti)*randn(size(u0))
+            for (i,ti) in enumerate(trange[1:end-1])]])))
+end
+
+function compute_Z(::Nothing, noise_rate_prototype, trange, u0)
+    n = length(trange)
+
+    return collect(zip(1:n, trange, cumsum([[zeros(size(noise_rate_prototype,2))];[sqrt(trange[i+1]-ti)*randn(size(noise_rate_prototype,2))
+            for (i,ti) in enumerate(trange[1:end-1])]])))
+end
+
+function compute_Z(Z::DiffEqNoiseProcess.NoiseGrid, noise_rate_prototype, trange, u0)
+    n = length(trange)
+
+    return collect(zip(1:n, trange, Z.W))
+end
+
+function compute_Z(Z::DiffEqNoiseProcess.NoiseWrapper, noise_rate_prototype, trange, u0)
+    n = length(trange)
+
+    return collect(zip(1:n, trange, Z.source.W))
+end
+
+function compute_Z(Z, noise_rate_prototype, trange, u0)
+    n = length(trange)
+
+    return collect(zip(1:n, trange, Z))
+end

@@ -521,7 +521,7 @@ end
   # forward sample
   x, xT = MSDE.sample(κ1, u0; save_noise=true)
   Z = NoiseWrapper(x.W)
-  x2, xT2 = MSDE.sample(κ2, u0; Z=Z)
+  x2, xT2 = MSDE.sample(κ2, u0, EM(false), Z)
 
   @test x.u ≈ x2.u
   @test xT ≈ xT2
