@@ -1,4 +1,7 @@
-struct SDEKernel{fType,gType,tType,pType,NRPType}
+abstract type AbstractSDEKernel
+end
+
+struct SDEKernel{fType,gType,tType,pType,NRPType} <: AbstractSDEKernel
   f::fType
   g::gType
   trange::tType
@@ -7,11 +10,35 @@ struct SDEKernel{fType,gType,tType,pType,NRPType}
   constant_diffusity::Bool
 end
 
-function SDEKernel(f,g,trange,p=nothing,noise_rate_prototype=nothing,constant_diffusity=false)
-  SDEKernel{typeof(f),typeof(g),typeof(trange),typeof(p),typeof(noise_rate_prototype),
-            typeof(constant_diffusity)}(f,g,trange,p,noise_rate_prototype,constant_diffusity)
+struct SDEKernel!{fType,gType,gstep!Type,tType,pType,NRPType,wsType} <: AbstractSDEKernel
+  f::fType
+  g::gType
+  gstep!::gstep!Type
+  trange::tType
+  p::pType
+  noise_rate_prototype::NRPType
+  ws::wsType
+  constant_diffusity::Bool
+end
+function make_gstep(g) #g has signature  g(du,u,p,t)
+  function gstep!(dx, ws, x, p, t, dw, noise_rate_prototype)   
+    if noise_rate_prototype===nothing
+      g(ws, x, p, t)
+      dx .+= ws .* dw 
+    else
+      g(ws, x, p,t)
+      dx .+= ws * dw 
+    end
+  end
 end
 
+function SDEKernel(f,g,trange,p=nothing,noise_rate_prototype=nothing,constant_diffusity=false)
+  SDEKernel{typeof(f),typeof(g),typeof(trange),typeof(p),typeof(noise_rate_prototype)}(f,g,trange,p,noise_rate_prototype,constant_diffusity)
+end
+
+function SDEKernel!(f,g,gstep!,trange,p=nothing,noise_rate_prototype=nothing,constant_diffusity=false; ws = copy(noise_rate_prototype))
+  SDEKernel!{typeof(f),typeof(g),typeof(gstep!),typeof(trange),typeof(p),typeof(noise_rate_prototype),typeof(ws)}(f,g,gstep!, trange,p,noise_rate_prototype, ws, constant_diffusity)
+end
 abstract type AbstractFilteringAlgorithm end
 
 struct CovarianceFilter <: AbstractFilteringAlgorithm end
