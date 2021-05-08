@@ -92,7 +92,7 @@ function _backwardfilter(filter::CovarianceFilter,k::SDEKernel, (c, ν, P);
   end
 
   if !OrdinaryDiffEq.isadaptive(alg)
-    sol = solve(prob, alg, tstops=_ts, abstol=abstol, reltol=reltol)
+    sol = solve(prob, alg, tstops=_ts)
   else
     sol = solve(prob, alg, dt=get_dt(k.trange), tstops=_ts, abstol=abstol, reltol=reltol)
   end
