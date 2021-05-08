@@ -30,7 +30,7 @@ function _sample(k::Union{SDEKernel,SDEKernel!}, u0, alg::Union{StochasticDiffEq
   @unpack f, g, trange, p = k
 
   prob = construct_sample_Problem(k, u0, Z, alg)
-  sol = solve(prob, alg, dt = get_dt(trange); kwargs...)
+  sol = solve(prob, alg, tstops = trange; kwargs...)
   return sol, sol[end]
 end
 
