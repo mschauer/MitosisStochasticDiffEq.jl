@@ -10,6 +10,17 @@ function conjugate(r::Union{Regression,Regression!}, Y::RODESolution, Γ0::Abstr
   conjugate(r, Y_, Mitosis.Gaussian{(:F,:Γ)}(zeros(eltype(Γ0_), size(Γ0_, 1)), Γ0_), ts)
 end
 
+function conjugate(r::Union{Regression,Regression!}, YY::EnsembleSolution, Γ0::AbstractArray)
+  Γ0_ = Matrix(Γ0)
+  G = Mitosis.Gaussian{(:F,:Γ)}(zeros(eltype(Γ0_), size(Γ0_, 1)), Γ0_)
+  for Y in YY
+    Y_ = Y.u
+    ts = Y.t
+    G = conjugate(r, Y_, G, ts)
+  end
+  G
+end
+
 function conjugate(r::Regression, Y, prior::Gaussian, ts)
   @unpack k, fjac, ϕ0func, θ, dy, isscalar = r
   @unpack g, p = k
@@ -99,3 +110,4 @@ function conjugate(r::Regression!, Y, prior::Gaussian, ts)
   end
   return Mitosis.Gaussian{(:F,:Γ)}(μ, Γ)
 end
+
