@@ -184,3 +184,60 @@ function forwardguiding(k::SDEKernel, message, (x0, ll0), Z=nothing; alg=EM(fals
 
   return sol, sol[end][end]
 end
+
+
+function tangent!(du, u, dz, P::GuidedSDE!)
+  @unpack kernel, message = P
+  @unpack ktilde, ts, soldis = message  
+  @unpack f, gstep!, ws, p, noise_rate_prototype = kernel
+  x, t = u[3], u[2]
+  cur_time = u[1]
+
+  μ = @view soldis[1:d,cur_time]
+  Σ = reshape(@view(soldis[d+1:d+d*d,cur_time]), d, d)
+  r = Σ\(μ .- x)
+
+  f(du[3], u[3], p, u[2])
+  du[3] += outer_(g(x,p,t))*r
+  du[3] .*= dz[2]
+  gstep!(du[3], ws, u[3], p, u[2], dz[3], noise_rate_prototype)
+
+  dl = dot(f(x,p,t) - ktilde.f(x,ktilde.p,t), r)
+  if !constant_diffusity
+    dl -= 0.5*tr((outer_(g(x,p,t)) - outer_(ktilde.g(x,ktilde.p,t)))*(inv(Σ) - outer_(r)))
+  end
+  (dz[1], dz[2], du[3], dll)
+end
+
+
+
+
+function dZ!(u, dz, Z, P::GuidedSDE)
+  i = u[1]
+  (Z[i+1][1] - Z[i][1], Z[i+1][2] - Z[i][2],  Z[i+1][3] -  Z[i][3])
+end
+
+function exponential_map!(u, du, P::GuidedSDE)
+  (u[1] + du[1], u[2] + du[2], u[3] + du[3], u[4] + du[4])
+end
+function tangent!(du, u, dz, P::GuidedSDE)
+  @unpack kernel, message = P
+  @unpack ktilde, ts, soldis = message  
+  @unpack f, g, p, noise_rate_prototype, constant_diffusity = kernel
+  x, t = u[3], u[2]
+  cur_time = u[1]
+
+  μ = soldis[cur_time][1]
+  Σ = soldis[cur_time][2]
+
+  r = Σ\(μ - x)
+
+  du3 = (f(x,p,t) + outer_(g(x,p,t))*r)*dz[2]
+  du3 += g(x,p,t)*dz[3]
+
+  dl = dot(f(x,p,t) - ktilde.f(x,ktilde.p,t), r)
+  if !constant_diffusity
+    dl -= 0.5*tr((outer_(g(x,p,t)) - outer_(ktilde.g(x,ktilde.p,t)))*(inv(Σ) - outer_(r)))
+  end
+  (dz[1], dz[2], du3, dl)
+end

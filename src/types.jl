@@ -234,3 +234,14 @@ struct DefaultForwardGuidingP end
 """
 function tangent!
 end
+
+
+struct GuidedSDE{kType, mType} 
+  kernel::kType
+  message::mType
+end
+
+struct GuidedSDE!{kType, mType} 
+  kernel::kType
+  message::mType
+end
