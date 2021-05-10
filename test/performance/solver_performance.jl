@@ -28,7 +28,7 @@ end
 # time span
 tstart = 0.0
 tend = 1.0
-dt = 0.0001
+dt = 0.00001
 trange = tstart:dt:tend
 
 B, β, σ̃ = -fill(0.1,1,1), [0.2], 1.3
@@ -99,5 +99,3 @@ u = (1, 0.0, copy(u0))
 dz = (0, 0.0, [0.0])
 @btime MSDE.solve!(MSDE.EulerMaruyama!(), nothing, deepcopy(u), Z, customP(p))
 ;
-
-#ProfileView.@profview @btime MSDE.sample(k_iip2, u0, MSDE.EulerMaruyama!(), Ws)
