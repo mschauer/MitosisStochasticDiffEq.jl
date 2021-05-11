@@ -70,7 +70,7 @@ sol7, solend7 = @time MSDE.solve!(MSDE.EulerMaruyama!(), typeof(u)[], u, Z, k_oo
 
 
 message1_, backward1 = MSDE.backwardfilter(k_oop, WGaussian{(:μ, :Σ, :c)}(v, @SMatrix([1.0]), 0.0))
-U = reinterpret(Tuple{SVector{1, Float64}, SMatrix{1, 1, Float64, 1}, Float64}, message1_.soldis)
+U = reinterpret(Tuple{typeof(message1_.sol.u[1].x[1]), typeof(message1_.sol.u[1].x[2]), typeof(message1_.sol.u[1].x[3])}, message1_.soldis)
 message1 = MSDE.Message(message1_.ktilde, message1_.sol, U, message1_.ts, message1_.filter)
 gp1 = MSDE.GuidedSDE(k_oop, message1)
 

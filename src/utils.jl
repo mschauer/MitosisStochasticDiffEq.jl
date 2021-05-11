@@ -36,6 +36,12 @@ function convert_message(message, F1::CovarianceFilter, F2::InformationFilter)
   return Message(ktilde, ts, soldis, nothing)
 end
 
+function reinterpret_message(message)
+  ν, P, c = myunpack(message.sol.u[1])
+  U = reinterpret(Tuple{typeof(ν), typeof(P), typeof(c)}, message.soldis)
+  return Message(message.ktilde, message.sol, U, message.ts, message.filter)
+end
+
 
 # handle noise conversion between solvers
 function compute_Z(::Nothing, ::Nothing, trange, u0)

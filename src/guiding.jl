@@ -127,7 +127,7 @@ function (G::GuidingDiffusionCache)(u,p,t)
   return PaddedView(zero(eltype(dx)), dx, padded_size)
 end
 
-function construct_forwardguiding_Problem(k::SDEKernel, message, u0, Z, inplace)
+function construct_forwardguiding_Problem(k::SDEKernel, message, u0, Z, inplace, alg::Union{StochasticDiffEqAlgorithm,StochasticDiffEqRODEAlgorithm})
   @unpack f, g, trange, p, noise_rate_prototype = k
 
   guided_f = GuidingDriftCache(k,message)
@@ -149,21 +149,46 @@ function construct_forwardguiding_Problem(k::SDEKernel, message, u0, Z, inplace)
   return prob
 end
 
+function construct_forwardguiding_Problem(k::SDEKernel, message, (u0,ll), Z, inplace, alg::AbstractInternalSolver; P=nothing)
 
-function forwardguiding(k::SDEKernel, message, (x0, ll0), Z=nothing; alg=EM(false),
-    dt=get_dt(k.trange), isadaptive=StochasticDiffEq.isadaptive(alg),
+  message = reinterpret_message(message, alg)
+
+  if P===nothing
+    if inplace
+      P = GuidedSDE!(k, message)
+    else
+      P = GuidedSDE(k, message)
+    end
+  end
+
+  u, dz, du, Z = construct_sample_Problem(k, u0, Z, alg)
+
+  return u, dz, du, Z, P
+end
+
+
+function forwardguiding(k::SDEKernel, message, (x0, ll0), alg=EM(false), Z=nothing;
+  dt=get_dt(k.trange),
+  inplace=true, kwargs...)
+
+  # check that message.ts is sorted
+  !issorted(message.ts) && error("Something went wrong. Message.ts is not sorted! Please report this.")
+
+  sol, ll = _forwardguiding(k::SDEKernel, message, (x0, ll0), alg, Z;
+    dt=dt, inplace=inplace, kwargs...)
+end
+
+function _forwardguiding(k::SDEKernel, message, (x0, ll0), alg::Union{StochasticDiffEqAlgorithm,StochasticDiffEqRODEAlgorithm}, Z;
+    dt=dt, isadaptive=StochasticDiffEq.isadaptive(alg),
     numtraj=nothing, ensemblealg=EnsembleThreads(), output_func=(sol,i) -> (sol,false),
-    inplace=true, kwargs...)
+    inplace=inplace, kwargs...)
 
   @unpack f, g, trange, p = k
 
   u0 = mypack(x0,ll0)
 
-  # check that message.ts is sorted
-  !issorted(message.ts) && error("Something went wrong. Message.ts is not sorted! Please report this.")
-
   # construct guiding SDE problem
-  prob = construct_forwardguiding_Problem(k::SDEKernel, message, u0, Z, inplace)
+  prob = construct_forwardguiding_Problem(k, message, u0, Z, inplace, alg)
 
   if numtraj==nothing
     if !isadaptive
@@ -175,26 +200,42 @@ function forwardguiding(k::SDEKernel, message, (x0, ll0), Z=nothing; alg=EM(fals
     ensembleprob = EnsembleProblem(prob, output_func = output_func)
     if !isadaptive
       sol = solve(ensembleprob, alg, ensemblealg=ensemblealg,
-        tstops=message.ts, trajectories=numtraj; kwargs...)
+          tstops=message.ts, trajectories=numtraj; kwargs...)
     else
       sol = solve(ensembleprob, alg, ensemblealg=ensemblealg,
-        dt=dt, adaptive=isadaptive, trajectories=numtraj; kwargs...)
+          dt=dt, adaptive=isadaptive, trajectories=numtraj; kwargs...)
     end
   end
 
   return sol, sol[end][end]
 end
 
+function _forwardguiding(k::SDEKernel, message, (x0, ll0), alg::AbstractInternalSolver, Z; P=nothing, save=true, inplace=inplace, kwargs...)
+
+  @unpack f, g, trange, p = k
+
+  u0 = mypack(x0,ll0)
+
+  u, dz, du, Z, P = construct_forwardguiding_Problem(k, message, (x0, ll0), Z, inplace, alg; P=P)
+
+  if save
+    uu = typeof(u)[]
+  else
+    uu = nothing
+  end
+  uu, uT = solve!(alg, uu, u, Z, P)
+  return uu, uT[end]
+end
 
 function tangent!(du, u, dz, P::GuidedSDE!)
   @unpack kernel, message = P
-  @unpack ktilde, ts, soldis = message  
+  @unpack ktilde, ts, soldis = message
   @unpack f, gstep!, ws, p, noise_rate_prototype = kernel
   x, t = u[3], u[2]
   cur_time = u[1]
 
-  μ = @view soldis[1:d,cur_time]
-  Σ = reshape(@view(soldis[d+1:d+d*d,cur_time]), d, d)
+  μ = @view soldis[cur_time][1]
+  Σ = @view soldis[cur_time][2]
   r = Σ\(μ .- x)
 
   f(du[3], u[3], p, u[2])
@@ -209,9 +250,6 @@ function tangent!(du, u, dz, P::GuidedSDE!)
   (dz[1], dz[2], du[3], dll)
 end
 
-
-
-
 function dZ!(u, dz, Z, P::GuidedSDE)
   i = u[1]
   (Z[i+1][1] - Z[i][1], Z[i+1][2] - Z[i][2],  Z[i+1][3] -  Z[i][3])
@@ -220,9 +258,10 @@ end
 function exponential_map!(u, du, P::GuidedSDE)
   (u[1] + du[1], u[2] + du[2], u[3] + du[3], u[4] + du[4])
 end
+
 function tangent!(du, u, dz, P::GuidedSDE)
   @unpack kernel, message = P
-  @unpack ktilde, ts, soldis = message  
+  @unpack ktilde, ts, soldis = message
   @unpack f, g, p, noise_rate_prototype, constant_diffusity = kernel
   x, t = u[3], u[2]
   cur_time = u[1]
