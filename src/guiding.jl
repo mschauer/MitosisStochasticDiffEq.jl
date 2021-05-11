@@ -247,7 +247,7 @@ function tangent!(du, u, dz, P::GuidedSDE!)
   if !constant_diffusity
     dl -= 0.5*tr((outer_(g(x,p,t)) - outer_(ktilde.g(x,ktilde.p,t)))*(inv(Σ) - outer_(r)))
   end
-  (dz[1], dz[2], du[3], dll)
+  (dz[1], dz[2], du[3], dl)
 end
 
 function dZ!(u, dz, Z, P::GuidedSDE)
