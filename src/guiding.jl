@@ -127,7 +127,7 @@ function (G::GuidingDiffusionCache)(u,p,t)
   return PaddedView(zero(eltype(dx)), dx, padded_size)
 end
 
-function construct_forwardguiding_Problem(k::SDEKernel, message, u0, Z, inplace, alg::Union{StochasticDiffEqAlgorithm,StochasticDiffEqRODEAlgorithm})
+function construct_forwardguiding_Problem(k::Union{SDEKernel,SDEKernel!}, message, u0, Z, inplace, alg::Union{StochasticDiffEqAlgorithm,StochasticDiffEqRODEAlgorithm})
   @unpack f, g, trange, p, noise_rate_prototype = k
 
   guided_f = GuidingDriftCache(k,message)
@@ -149,19 +149,21 @@ function construct_forwardguiding_Problem(k::SDEKernel, message, u0, Z, inplace,
   return prob
 end
 
-function construct_forwardguiding_Problem(k::SDEKernel, message, (u0,ll), Z, inplace, alg::AbstractInternalSolver; P=nothing)
+function construct_forwardguiding_Problem(k::Union{SDEKernel,SDEKernel!}, message, (u0,ll0), Z, inplace, alg::AbstractInternalSolver; P=nothing)
 
-  message = reinterpret_message(message, alg)
-
+  message = reinterpret_message(message)
   if P===nothing
     if inplace
+      k isa SDEKernel && error("SDEKernel cannot be used with the inplace=true option. SDEKernel! has to be used instead.")
       P = GuidedSDE!(k, message)
     else
       P = GuidedSDE(k, message)
     end
   end
 
-  u, dz, du, Z = construct_sample_Problem(k, u0, Z, alg)
+
+  # du [index, time, space, ll]
+  u, dz, du, Z = construct_sample_Problem(k, u0, Z, alg, ll0)
 
   return u, dz, du, Z, P
 end
@@ -272,7 +274,11 @@ function tangent!(du, u, dz, P::GuidedSDE)
   r = Σ\(μ - x)
 
   du3 = (f(x,p,t) + outer_(g(x,p,t))*r)*dz[2]
-  du3 += g(x,p,t)*dz[3]
+  if noise_rate_prototype===nothing
+    du3 += g(x,p,t).*dz[3]
+  else
+    du3 += g(x,p,t)*dz[3]
+  end
 
   dl = dot(f(x,p,t) - ktilde.f(x,ktilde.p,t), r)
   if !constant_diffusity

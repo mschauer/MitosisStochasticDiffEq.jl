@@ -38,7 +38,9 @@ end
 
 function reinterpret_message(message)
   ν, P, c = myunpack(message.sol.u[1])
-  U = reinterpret(Tuple{typeof(ν), typeof(P), typeof(c)}, message.soldis)
+  U = mapslices(message.soldis, dims=1) do cols
+      (cols[1:length(ν)], reshape(cols[length(ν)+1:length(ν)+length(P)],size(P)...), cols[end])
+  end
   return Message(message.ktilde, message.sol, U, message.ts, message.filter)
 end
 

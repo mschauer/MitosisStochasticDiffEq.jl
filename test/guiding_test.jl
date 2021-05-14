@@ -6,6 +6,7 @@ using LinearAlgebra
 using Statistics
 using StochasticDiffEq
 using SparseArrays
+using StaticArrays
 
 # Test outer function
 @testset "outer function tests" begin
@@ -601,10 +602,11 @@ end
 
   message1, backward1 = MSDE.backwardfilter(k1, WGaussian{(:μ, :Σ, :c)}(v, Pmat, c))
   message2, backward2 = MSDE.backwardfilter(k2, WGaussian{(:μ, :Σ, :c)}(v, Pmat, c))
-  message3, backward3 = MSDE.backwardfilter(k3, WGaussian{(:μ, :Σ, :c)}(v, Pmat, c))
+  message4, backward4 = MSDE.backwardfilter(k3, WGaussian{(:μ, :Σ, :c)}(SVector{length(v)}(v), SMatrix{2,2,eltype(Pmat)}(Pmat), c))
 
   @test message1.soldis == message2.soldis
-  @test message2.soldis == message3.soldis
+  @test message1.soldis == message3.soldis
+  @test message1.soldis == message4.soldis
 
   ll0 = randn()
 
@@ -614,46 +616,84 @@ end
     sol2, ll2 = MSDE.forwardguiding(k2, message2, (u0, ll0), EM(false), Z; save_noise=true)
     Z = pCN(sol1.W, 1.0)
     sol3, ll3 = MSDE.forwardguiding(k3, message3, (u0, ll0), EM(false), Z; save_noise=true)
+    Z = pCN(sol1.W, 1.0)
+    sol4, ll4 = MSDE.forwardguiding(k3, message4, (u0, ll0), EM(false), Z; save_noise=true)
 
     @test sol1.u ≈ sol2.u rtol=1e-14
-    @test sol2.u ≈ sol3.u rtol=1e-14
+    @test sol1.u ≈ sol3.u rtol=1e-14
+    @test sol1.u ≈ sol4.u rtol=1e-14
     @test ll1 == ll2
-    @test ll2 == ll3
+    @test ll1 == ll3
+    @test ll1 == ll4
   end
 
   @testset "internal solver" begin
     @testset "without passing a noise" begin
       Random.seed!(seed)
-      sol1, ll1 = MSDE.forwardguiding(k1, message1, (u0, ll0), MSDE.EulerMaruyama!())
+      sol1, ll1 = MSDE.forwardguiding(k1, message1, (u0, ll0), MSDE.EulerMaruyama!(), inplace=false)
       Random.seed!(seed)
-      sol2, ll2 = MSDE.forwardguiding(k2, message2, (u0, ll0), MSDE.EulerMaruyama!())
+      sol2, ll2 = MSDE.forwardguiding(k2, message2, (u0, ll0), MSDE.EulerMaruyama!(), inplace=false)
       Random.seed!(seed)
-      sol3, ll3 = MSDE.forwardguiding(k3, message3, (u0, ll0), MSDE.EulerMaruyama!())
+      sol3, ll3 = MSDE.forwardguiding(k3, message3, (u0, ll0), MSDE.EulerMaruyama!(), inplace=false)
+      Random.seed!(seed)
+      sol4, ll4 = MSDE.forwardguiding(k3, message4, (u0, ll0), MSDE.EulerMaruyama!(), inplace=false)
+      @test minimum(isapprox.(sol1[end],sol2[end],rtol=1e-14))
+      @test minimum(isapprox.(sol1[end],sol3[end],rtol=1e-14))
+      @test minimum(isapprox.(sol1[end],sol4[end],rtol=1e-14))
       @test ll1 == ll2
       @test ll1 == ll3
-      @test sol1 == sol2
-      @test sol1 == sol3
+      @test ll1 == ll4
     end
 
     @testset "passing a noise grid" begin
-      # pass noise process and compare with EM()
-      Ws = cumsum([[zero(u0)];[sqrt(trange[i+1]-ti)*randn(size(u0)
-                  for (i,ti) in enumerate(trange[1:end-1])]])
+      Ws = cumsum([[zero(u0)];[sqrt(trange[i+1]-ti)*randn(size(u0))
+                for (i,ti) in enumerate(trange[1:end-1])]])
       NG = NoiseGrid(trange,Ws)
+
+      Wsaug = [vcat(W,zero(eltype(W))) for W in Ws]
+      NGaug = NoiseGrid(trange,Wsaug)
+
+      solEM, llEM = MSDE.forwardguiding(k3, message4, (u0, ll0), EM(false), NGaug, inplace=false)
+      sol1, ll1 = MSDE.forwardguiding(k1, message1, (u0, ll0), MSDE.EulerMaruyama!(), NG, inplace=false)
+      sol2, ll2 = MSDE.forwardguiding(k2, message2, (u0, ll0), MSDE.EulerMaruyama!(), NG, inplace=false)
+      sol3, ll3 = MSDE.forwardguiding(k3, message3, (u0, ll0), MSDE.EulerMaruyama!(), NG, inplace=false)
+      sol4, ll4 = MSDE.forwardguiding(k3, message4, (u0, ll0), MSDE.EulerMaruyama!(), NG, inplace=false)
+
+      @test hcat(getindex.(sol1,3)...) ≈ solEM[1:2,:] rtol=1e-12
+      @test llEM ≈ ll1 rtol=1e-12
+
+      @test minimum(isapprox.(sol1[end],sol2[end],rtol=1e-14))
+      @test minimum(isapprox.(sol1[end],sol3[end],rtol=1e-14))
+      @test minimum(isapprox.(sol1[end],sol4[end],rtol=1e-14))
+      @test ll1 == ll2
+      @test ll1 == ll3
+      @test ll1 == ll4
     end
 
     @testset "passing the noise values" begin
       # pass noise process and compare with EM()
       Ws = cumsum([[zero(u0)];[sqrt(trange[i+1]-ti)*randn(size(u0))
-            for (i,ti) in enumerate(trange[1:end-1])]])
+              for (i,ti) in enumerate(trange[1:end-1])]])
       NG = NoiseGrid(trange,Ws)
 
-    end
+      Wsaug = [vcat(W,zero(eltype(W))) for W in Ws]
+      NGaug = NoiseGrid(trange,Wsaug)
 
-    @testset "custom P" begin
-      # checks that defining and passing P manually works
+      solEM, llEM = MSDE.forwardguiding(k3, message4, (u0, ll0), EM(false), NGaug, inplace=false)
+      sol1, ll1 = MSDE.forwardguiding(k1, message1, (u0, ll0), MSDE.EulerMaruyama!(), Ws, inplace=false)
+      sol2, ll2 = MSDE.forwardguiding(k2, message2, (u0, ll0), MSDE.EulerMaruyama!(), Ws, inplace=false)
+      sol3, ll3 = MSDE.forwardguiding(k3, message3, (u0, ll0), MSDE.EulerMaruyama!(), Ws, inplace=false)
+      sol4, ll4 = MSDE.forwardguiding(k3, message4, (u0, ll0), MSDE.EulerMaruyama!(), Ws, inplace=false)
 
+      @test hcat(getindex.(sol1,3)...) ≈ solEM[1:2,:] rtol=1e-12
+      @test llEM ≈ ll1 rtol=1e-12
 
+      @test minimum(isapprox.(sol1[end],sol2[end],rtol=1e-14))
+      @test minimum(isapprox.(sol1[end],sol3[end],rtol=1e-14))
+      @test minimum(isapprox.(sol1[end],sol4[end],rtol=1e-14))
+      @test ll1 == ll2
+      @test ll1 == ll3
+      @test ll1 == ll4
     end
 
   end
