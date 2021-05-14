@@ -161,7 +161,6 @@ function construct_forwardguiding_Problem(k::Union{SDEKernel,SDEKernel!}, messag
     end
   end
 
-
   # du [index, time, space, ll]
   u, dz, du, Z = construct_sample_Problem(k, u0, Z, alg, ll0)
 
