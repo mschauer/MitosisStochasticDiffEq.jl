@@ -236,8 +236,8 @@ function tangent!(du, u, dz, P::GuidedSDE!)
   x, t = u[3], u[2]
   cur_time = u[1]
 
-  μ = @view soldis[cur_time][1]
-  Σ = @view soldis[cur_time][2]
+  μ = soldis[cur_time][1]
+  Σ = soldis[cur_time][2]
   r = Σ\(μ .- x)
 
   f(du[3], u[3], p, u[2])
