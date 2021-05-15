@@ -607,7 +607,7 @@ end
 
   @test message1.soldis == message2.soldis
   @test message1.soldis == message3.soldis
-  @test message1.soldis == message4.soldis
+  @test message1.soldis ≈ message4.soldis rtol=1e-14
 
   ll0 = randn()
 
