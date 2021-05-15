@@ -602,6 +602,7 @@ end
 
   message1, backward1 = MSDE.backwardfilter(k1, WGaussian{(:μ, :Σ, :c)}(v, Pmat, c))
   message2, backward2 = MSDE.backwardfilter(k2, WGaussian{(:μ, :Σ, :c)}(v, Pmat, c))
+  message3, backward3 = MSDE.backwardfilter(k2, WGaussian{(:μ, :Σ, :c)}(v, Pmat, c))
   message4, backward4 = MSDE.backwardfilter(k3, WGaussian{(:μ, :Σ, :c)}(SVector{length(v)}(v), SMatrix{2,2,eltype(Pmat)}(Pmat), c))
 
   @test message1.soldis == message2.soldis
