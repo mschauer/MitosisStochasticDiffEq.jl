@@ -33,8 +33,8 @@ function (G::GuidingDriftCache)(du,u,p,t)
     # non-interpolating version
     # take care for multivariate case here if P isa Matrix, ν  isa Vector, c isa Scalar
     # ν, P, c or F, H, c parametrization = μ,Σ,c
-    μ = @view soldis[1:d,cur_time]
-    Σ = reshape(@view(soldis[d+1:d+d*d,cur_time]), d, d)
+    μ = soldis[cur_time][1]
+    Σ = soldis[cur_time][2]
   else
     μ = @view sol(t)[1:d]
     Σ = reshape(@view(sol(t)[d+1:d+d*d]), d, d)
@@ -70,8 +70,8 @@ function (G::GuidingDriftCache)(u,p,t)
     # non-interpolating version
     # take care for multivariate case here if P isa Matrix, ν  isa Vector, c isa Scalar
     # ν, P, c or F, H, c parametrization = μ,Σ,c
-    μ = @view soldis[1:d,cur_time]
-    Σ = reshape(@view(soldis[d+1:d+d*d,cur_time]), d, d)
+    μ = soldis[cur_time][1]
+    Σ = soldis[cur_time][2]
   else
     μ = @view sol(t)[1:d]
     Σ = reshape(@view(sol(t)[d+1:d+d*d]), d, d)
@@ -127,7 +127,7 @@ function (G::GuidingDiffusionCache)(u,p,t)
   return PaddedView(zero(eltype(dx)), dx, padded_size)
 end
 
-function construct_forwardguiding_Problem(k::SDEKernel, message, u0, Z, inplace)
+function construct_forwardguiding_Problem(k::Union{SDEKernel,SDEKernel!}, message, u0, Z, inplace, alg::Union{StochasticDiffEqAlgorithm,StochasticDiffEqRODEAlgorithm})
   @unpack f, g, trange, p, noise_rate_prototype = k
 
   guided_f = GuidingDriftCache(k,message)
@@ -149,21 +149,46 @@ function construct_forwardguiding_Problem(k::SDEKernel, message, u0, Z, inplace)
   return prob
 end
 
+function construct_forwardguiding_Problem(k::Union{SDEKernel,SDEKernel!}, message, (u0,ll0), Z, inplace, alg::AbstractInternalSolver; P=nothing)
 
-function forwardguiding(k::SDEKernel, message, (x0, ll0), Z=nothing; alg=EM(false),
-    dt=get_dt(k.trange), isadaptive=StochasticDiffEq.isadaptive(alg),
+  if P===nothing
+    if inplace
+      k isa SDEKernel && error("SDEKernel cannot be used with the inplace=true option. SDEKernel! has to be used instead.")
+      P = GuidedSDE!(k, message)
+    else
+      P = GuidedSDE(k, message)
+    end
+  end
+
+  # du [index, time, space, ll]
+  u, dz, du, Z = construct_sample_Problem(k, u0, Z, alg, ll0)
+
+  return u, dz, du, Z, P
+end
+
+
+function forwardguiding(k::SDEKernel, message, (x0, ll0), alg=EM(false), Z=nothing;
+  dt=get_dt(k.trange),
+  inplace=true, kwargs...)
+
+  # check that message.ts is sorted
+  !issorted(message.ts) && error("Something went wrong. Message.ts is not sorted! Please report this.")
+
+  sol, ll = _forwardguiding(k::SDEKernel, message, (x0, ll0), alg, Z;
+    dt=dt, inplace=inplace, kwargs...)
+end
+
+function _forwardguiding(k::SDEKernel, message, (x0, ll0), alg::Union{StochasticDiffEqAlgorithm,StochasticDiffEqRODEAlgorithm}, Z;
+    dt=dt, isadaptive=StochasticDiffEq.isadaptive(alg),
     numtraj=nothing, ensemblealg=EnsembleThreads(), output_func=(sol,i) -> (sol,false),
-    inplace=true, kwargs...)
+    inplace=inplace, kwargs...)
 
   @unpack f, g, trange, p = k
 
   u0 = mypack(x0,ll0)
 
-  # check that message.ts is sorted
-  !issorted(message.ts) && error("Something went wrong. Message.ts is not sorted! Please report this.")
-
   # construct guiding SDE problem
-  prob = construct_forwardguiding_Problem(k::SDEKernel, message, u0, Z, inplace)
+  prob = construct_forwardguiding_Problem(k, message, u0, Z, inplace, alg)
 
   if numtraj==nothing
     if !isadaptive
@@ -175,12 +200,87 @@ function forwardguiding(k::SDEKernel, message, (x0, ll0), Z=nothing; alg=EM(fals
     ensembleprob = EnsembleProblem(prob, output_func = output_func)
     if !isadaptive
       sol = solve(ensembleprob, alg, ensemblealg=ensemblealg,
-        tstops=message.ts, trajectories=numtraj; kwargs...)
+          tstops=message.ts, trajectories=numtraj; kwargs...)
     else
       sol = solve(ensembleprob, alg, ensemblealg=ensemblealg,
-        dt=dt, adaptive=isadaptive, trajectories=numtraj; kwargs...)
+          dt=dt, adaptive=isadaptive, trajectories=numtraj; kwargs...)
     end
   end
 
   return sol, sol[end][end]
+end
+
+function _forwardguiding(k::SDEKernel, message, (x0, ll0), alg::AbstractInternalSolver, Z; P=nothing, save=true, inplace=inplace, kwargs...)
+
+  @unpack f, g, trange, p = k
+
+  u0 = mypack(x0,ll0)
+
+  u, dz, du, Z, P = construct_forwardguiding_Problem(k, message, (x0, ll0), Z, inplace, alg; P=P)
+
+  if save
+    uu = typeof(u)[]
+  else
+    uu = nothing
+  end
+  uu, uT = solve!(alg, uu, u, Z, P)
+  return uu, uT[end]
+end
+
+function tangent!(du, u, dz, P::GuidedSDE!)
+  @unpack kernel, message = P
+  @unpack ktilde, ts, soldis = message
+  @unpack f, gstep!, ws, p, noise_rate_prototype = kernel
+  x, t = u[3], u[2]
+  cur_time = u[1]
+
+  μ = soldis[cur_time][1]
+  Σ = soldis[cur_time][2]
+  r = Σ\(μ .- x)
+
+  f(du[3], u[3], p, u[2])
+  du[3] += outer_(g(x,p,t))*r
+  du[3] .*= dz[2]
+  gstep!(du[3], ws, u[3], p, u[2], dz[3], noise_rate_prototype)
+
+  dl = dot(f(x,p,t) - ktilde.f(x,ktilde.p,t), r)
+  if !constant_diffusity
+    dl -= 0.5*tr((outer_(g(x,p,t)) - outer_(ktilde.g(x,ktilde.p,t)))*(inv(Σ) - outer_(r)))
+  end
+  (dz[1], dz[2], du[3], dl)
+end
+
+function dZ!(u, dz, Z, P::GuidedSDE)
+  i = u[1]
+  (Z[i+1][1] - Z[i][1], Z[i+1][2] - Z[i][2],  Z[i+1][3] -  Z[i][3])
+end
+
+function exponential_map!(u, du, P::GuidedSDE)
+  (u[1] + du[1], u[2] + du[2], u[3] + du[3], u[4] + du[4])
+end
+
+function tangent!(du, u, dz, P::GuidedSDE)
+  @unpack kernel, message = P
+  @unpack ktilde, ts, soldis = message
+  @unpack f, g, p, noise_rate_prototype, constant_diffusity = kernel
+  x, t = u[3], u[2]
+  cur_time = u[1]
+
+  μ = soldis[cur_time][1]
+  Σ = soldis[cur_time][2]
+
+  r = Σ\(μ - x)
+
+  du3 = (f(x,p,t) + outer_(g(x,p,t))*r)*dz[2]
+  if noise_rate_prototype===nothing
+    du3 += g(x,p,t).*dz[3]
+  else
+    du3 += g(x,p,t)*dz[3]
+  end
+
+  dl = dot(f(x,p,t) - ktilde.f(x,ktilde.p,t), r)
+  if !constant_diffusity
+    dl -= 0.5*tr((outer_(g(x,p,t)) - outer_(ktilde.g(x,ktilde.p,t)))*(inv(Σ) - outer_(r)))
+  end
+  (dz[1], dz[2], du3, dl)
 end

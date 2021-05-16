@@ -21,13 +21,13 @@ struct SDEKernel!{fType,gType,gstep!Type,tType,pType,NRPType,wsType} <: Abstract
   constant_diffusity::Bool
 end
 function make_gstep(g) #g has signature  g(du,u,p,t)
-  function gstep!(dx, ws, x, p, t, dw, noise_rate_prototype)   
+  function gstep!(dx, ws, x, p, t, dw, noise_rate_prototype)
     if noise_rate_prototype===nothing
       g(ws, x, p, t)
-      dx .+= ws .* dw 
+      dx .+= ws .* dw
     else
       g(ws, x, p,t)
-      dx .+= ws * dw 
+      dx .+= ws * dw
     end
   end
 end
@@ -62,7 +62,7 @@ struct Message{kernelType,solType,sol2Type,tType,filterType}
 end
 
 function Message(sol, sdekernel::SDEKernel, filter, apply_timechange=false)
-  soldis = reverse(Array(sol), dims=2)
+  soldis = construct_discrete_sol(sol)
   if OrdinaryDiffEq.isadaptive(sol.alg) || apply_timechange
     ts = reverse(sol.t)
   else
@@ -233,4 +233,15 @@ struct DefaultForwardGuidingP end
 
 """
 function tangent!
+end
+
+
+struct GuidedSDE{kType, mType}
+  kernel::kType
+  message::mType
+end
+
+struct GuidedSDE!{kType, mType}
+  kernel::kType
+  message::mType
 end

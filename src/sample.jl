@@ -7,16 +7,21 @@ function construct_sample_Problem(k::Union{SDEKernel,SDEKernel!}, u0, Z, alg::Un
   return prob
 end
 
-function construct_sample_Problem(k::Union{SDEKernel,SDEKernel!}, u0, Z, alg::AbstractInternalSolver)
+function construct_sample_Problem(k::Union{SDEKernel,SDEKernel!}, u0, Z, alg::AbstractInternalSolver, ll0=nothing)
   @unpack f, g, trange, p, noise_rate_prototype = k
 
   @assert u0 isa AbstractVector
 
   Z = compute_Z(Z,noise_rate_prototype,trange,u0)
 
-  u = (1, trange[1], deepcopy(u0))
+  if ll0===nothing
+    u = (1, trange[1], deepcopy(u0))
+    du = (0, trange[1], zero(u0))
+  else
+    u = (1, trange[1], deepcopy(u0), deepcopy(ll0))
+    du = (0, trange[1], zero(u0), zero(ll0))
+  end
   dz = (0, trange[1], Z[1])
-  du = (0, trange[1], zero(u0))
 
   return u, dz, du, Z
 end
@@ -56,7 +61,7 @@ function sample(k::Union{SDEKernel,SDEKernel!}, u0, numtraj::Number, alg=EM(fals
 
   prob = construct_sample_Problem(k, u0, Z, alg)
   ensembleprob = EnsembleProblem(prob, output_func = output_func)
-  
+
   sol = solve(ensembleprob, alg, ensemblealg, dt = get_dt(trange), trajectories=numtraj; kwargs...)
   return sol
 end
