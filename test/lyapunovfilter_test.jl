@@ -40,9 +40,9 @@ Random.seed!(12345)
   @test ν == message2.sol.νT
   @test c == message2.sol.cT
 
-  @test message.soldis[1,:] ≈ message2.soldis[1,:] rtol=1e-10
-  @test message.soldis[2,:] ≈ message2.soldis[2,:] rtol=1e-10
-  @test message.soldis[3,:] ≈ message2.soldis[3,:] rtol=1e-10
+  @test getindex.(message.soldis,1) ≈ getindex.(message2.soldis,1) rtol=1e-10
+  @test getindex.(message.soldis,2) ≈ getindex.(message2.soldis,2) rtol=1e-10
+  @test getindex.(message.soldis,3) ≈ getindex.(message2.soldis,3) rtol=1e-10
   @test isapprox(solend, solend2, rtol=1e-10)
 
   dim = 1
@@ -61,9 +61,9 @@ Random.seed!(12345)
   message2, solend2 = MSDE.backwardfilter(kernel, NT,
     filter=MSDE.LyapunovFilter())
 
-  @test message.soldis[1,:] ≈ message2.soldis[1,:] rtol=1e-10
-  @test message.soldis[2,:] ≈ message2.soldis[2,:] rtol=1e-10
-  @test message.soldis[3,:] ≈ message2.soldis[3,:] rtol=1e-10
+  @test getindex.(message.soldis,1) ≈ getindex.(message2.soldis,1) rtol=1e-10
+  @test getindex.(message.soldis,2) ≈ getindex.(message2.soldis,2) rtol=1e-10
+  @test getindex.(message.soldis,3) ≈ getindex.(message2.soldis,3) rtol=1e-10
   @test isapprox(solend, solend2, rtol=1e-10)
 
   dim = 4
@@ -84,8 +84,8 @@ Random.seed!(12345)
   message2, solend2 = MSDE.backwardfilter(kernel, NT,
     filter=MSDE.LyapunovFilter())
 
-  @test message.soldis[1:dim,:] ≈ message2.soldis[1:dim,:] rtol=1e-9
-  @test message.soldis[dim+1:dim+dim*dim,:] ≈ message2.soldis[dim+1:dim+dim*dim,:] rtol=1e-9
-  @test message.soldis[end,:] ≈ message2.soldis[end,:] rtol=1e-9
+  @test getindex.(message.soldis,1) ≈ getindex.(message2.soldis,1) rtol=1e-9
+  @test getindex.(message.soldis,2) ≈ getindex.(message2.soldis,2) rtol=1e-9
+  @test getindex.(message.soldis,3) ≈ getindex.(message2.soldis,3) rtol=1e-9
   @test solend2 ≈ solend rtol=1e-9
 end

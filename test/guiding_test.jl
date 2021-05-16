@@ -38,9 +38,13 @@ function forwardguiding(plin, pest, s, (x, ll), ps, Z=randn(length(s)), noisetyp
         dt = s[i+1] - s[i]
         t = s[i]
         push!(xs, x)
-        ν = @view ps[:,i][1:d]
-        P = reshape(@view(ps[:,i][d+1:d+d*d]), d, d)
+        # ν = @view ps[:,i][1:d]
+        # P = reshape(@view(ps[:,i][d+1:d+d*d]), d, d)
+        # r = inv(P)*(ν .- x)
+        ν = ps[i][1]
+        P = ps[i][2]
         r = inv(P)*(ν .- x)
+
 
         ll += llstep(x, r, t, P, noisetype)*dt # accumulate log-likelihood
 
@@ -607,7 +611,9 @@ end
 
   @test message1.soldis == message2.soldis
   @test message1.soldis == message3.soldis
-  @test message1.soldis ≈ message4.soldis rtol=1e-14
+  @test getindex.(message1.soldis,1) ≈ getindex.(message4.soldis,1) rtol=1e-14
+  @test getindex.(message1.soldis,2) ≈ getindex.(message4.soldis,2) rtol=1e-14
+  @test getindex.(message1.soldis,3) ≈ getindex.(message4.soldis,3) rtol=1e-14
 
   ll0 = randn()
 

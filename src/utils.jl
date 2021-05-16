@@ -36,14 +36,21 @@ function convert_message(message, F1::CovarianceFilter, F2::InformationFilter)
   return Message(ktilde, ts, soldis, nothing)
 end
 
-function reinterpret_message(message)
-  ν, P, c = myunpack(message.sol.u[1])
-  U = mapslices(message.soldis, dims=1) do cols
-      (cols[1:length(ν)], reshape(cols[length(ν)+1:length(ν)+length(P)],size(P)...), cols[end])
-  end
-  return Message(message.ktilde, message.sol, U, message.ts, message.filter)
+function construct_discrete_sol(sol::SciMLBase.ODESolution)
+  soldis = reverse(Array(sol), dims=2)
+  ν, P, c = myunpack(sol.u[1])
+  d = length(ν)
+  #TODO: only store views, make an option for Cholesky(P), qr(P), etc.
+  return [( view(cols,1:d), reshape(view(cols, d+1:d+d*d),d,d), cols[end]) for cols in eachcol(soldis)]
 end
 
+
+function construct_discrete_sol(sol::AbstractVector)
+  ν, P, c = myunpack(sol[1])
+  d = length(ν)
+  #TODO: only store views, make an option for Cholesky(P), qr(P), etc.
+  return [( view(cols,1:length(ν)), reshape(view(cols, d+1:d+d*d),d,d), cols[end]) for cols in sol]
+end
 
 # handle noise conversion between solvers
 function compute_Z(::Nothing, ::Nothing, trange, u0)

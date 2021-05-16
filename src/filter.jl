@@ -228,7 +228,8 @@ function _backwardfilter(filter::LyapunovFilter,k::SDEKernel, (c, ν, P); apply_
                         Nothing,Nothing,Nothing,Nothing}(
                         u,nothing,nothing,
                         _ts,nothing,nothing,nothing,nothing,true,0,nothing,:Success)
-  soldis = Array(SciMLsol)
+                                           
+  soldis = construct_discrete_sol(u)
 
   message = Message(k, sol, soldis, _ts, filter)
 

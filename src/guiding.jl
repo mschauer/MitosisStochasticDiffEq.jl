@@ -33,8 +33,8 @@ function (G::GuidingDriftCache)(du,u,p,t)
     # non-interpolating version
     # take care for multivariate case here if P isa Matrix, ν  isa Vector, c isa Scalar
     # ν, P, c or F, H, c parametrization = μ,Σ,c
-    μ = @view soldis[1:d,cur_time]
-    Σ = reshape(@view(soldis[d+1:d+d*d,cur_time]), d, d)
+    μ = soldis[cur_time][1]
+    Σ = soldis[cur_time][2]
   else
     μ = @view sol(t)[1:d]
     Σ = reshape(@view(sol(t)[d+1:d+d*d]), d, d)
@@ -70,8 +70,8 @@ function (G::GuidingDriftCache)(u,p,t)
     # non-interpolating version
     # take care for multivariate case here if P isa Matrix, ν  isa Vector, c isa Scalar
     # ν, P, c or F, H, c parametrization = μ,Σ,c
-    μ = @view soldis[1:d,cur_time]
-    Σ = reshape(@view(soldis[d+1:d+d*d,cur_time]), d, d)
+    μ = soldis[cur_time][1]
+    Σ = soldis[cur_time][2]
   else
     μ = @view sol(t)[1:d]
     Σ = reshape(@view(sol(t)[d+1:d+d*d]), d, d)
@@ -151,7 +151,6 @@ end
 
 function construct_forwardguiding_Problem(k::Union{SDEKernel,SDEKernel!}, message, (u0,ll0), Z, inplace, alg::AbstractInternalSolver; P=nothing)
 
-  message = reinterpret_message(message)
   if P===nothing
     if inplace
       k isa SDEKernel && error("SDEKernel cannot be used with the inplace=true option. SDEKernel! has to be used instead.")
