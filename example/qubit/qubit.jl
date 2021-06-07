@@ -26,7 +26,7 @@ function qubit_drift(u,p,t)
   dx1 = 1//2*(ceI*Δ-ceR*κ+cdI*Ω)
   dx2 = -cdI*Δ/2 + 1*ceR*(cdI*ceI+cdR*ceR)*κ/norm + ceI*Ω/2
   dx3 = 1//2*(-ceR*Δ-ceI*κ-cdR*Ω)
-  dx4 = cdR*Δ/2 + 1*ceI*(cdI*ceI+cdR*ceR)*κ/norm-ceR*Ω/2
+  dx4 = cdR*Δ/2 + 1*ceI*(cdI*ceI+cdR*ceR)*κ/norm - ceR*Ω/2
 
   du2 = [dx1,dx2,dx3,dx4]
   return du1 + du2
