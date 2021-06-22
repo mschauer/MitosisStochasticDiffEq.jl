@@ -15,17 +15,19 @@ using DiffEqNoiseProcess
 
 const d = 2
 const 𝕏 = SVector{d,Float64}
+# needed for StochasticDiffEq package where we simulate d+1 states in forwardguiding
+# to compute the likelihood.
 #const 𝕏_ = SVector{d+1,Float64}
 const MS = Mitosis
 const MSDE = MitosisStochasticDiffEq
 
 # using MeasureTheory
 # import MeasureTheory.logdensity
-Mitosis.dim(p::WGaussian{(:μ,:Σ,:c)}) = length(p.μ)
-Mitosis._logdet(p::WGaussian{(:μ,:Σ,:c)}) = Mitosis._logdet(p.Σ, Mitosis.dim(p))
-Mitosis.whiten(p::WGaussian{(:μ,:Σ,:c)}, x) = Mitosis.lchol(p.Σ)\(x - p.μ)
-Mitosis.sqmahal(p::WGaussian, x) = Mitosis.norm_sqr(Mitosis.whiten(p, x))
-Mitosis.logdensity(p::WGaussian{(:μ,:Σ,:c)}, x) = p.c - (Mitosis.sqmahal(p,x) + Mitosis._logdet(p) + Mitosis.dim(p)*log(2pi))/2
+MS.dim(p::WGaussian{(:μ,:Σ,:c)}) = length(p.μ)
+MS._logdet(p::WGaussian{(:μ,:Σ,:c)}) = MS._logdet(p.Σ, MS.dim(p))
+MS.whiten(p::WGaussian{(:μ,:Σ,:c)}, x) = MS.lchol(p.Σ)\(x - p.μ)
+MS.sqmahal(p::WGaussian, x) = MS.norm_sqr(MS.whiten(p, x))
+MS.logdensity(p::WGaussian{(:μ,:Σ,:c)}, x) = p.c - (MS.sqmahal(p,x) + MS._logdet(p) + MS.dim(p)*log(2pi))/2
 
 include("tree.jl")
 include("sdetree.jl")
@@ -57,15 +59,15 @@ Xd, segs = forwardsample(tree, u0, θ0, dt0, f, g)
 B(θ) = Diagonal(θ[1]) * M
 ##Σ(θ) = Diagonal(exp.(θ[2]))
 #σ̃(θ) = SMatrix{d,d}(exp(θ[2][1]), 0.0, 0.0, exp(θ[2][2])) # or?  g(0,θ,0) * g(0, θ, 0)'
-σ̃(θ) = g(0,θ,0) 
+σ̃(θ) = g(0,θ,0)
 
 function mcmc2(tree, Xd, f, g, θinit, prior;
-                 ρ=0.99, 
-                 iters=5000, 
+                 ρ=0.99,
+                 iters=5000,
                  dt=0.01,
                  σprop=0.05,
-                 precisionatleaves=10e5, 
-                 apply_time_change=true, 
+                 precisionatleaves=10e5,
+                 apply_time_change=true,
                  𝒫=(:μ,:Σ,:c),  # 𝒫=(:F,:\Gamma,:c)
                  recomputeguidingterm=true,
                  alg=Tsit5()
@@ -94,7 +96,7 @@ function mcmc2(tree, Xd, f, g, θinit, prior;
         X[id] = Xd[id]
     end
 
-        
+
     Z = [innov(messages[i].ts, 𝕏) for i ∈ 2:tree.n]  # skip first message, which is not defined (root node)
     X, guidedsegs, ll, 𝐋 = fwguidtree!(X, guidedsegs, Q, messages, tree, f, g, θ, Z)
 
@@ -146,14 +148,9 @@ prior = (MS.Gaussian{(:F,:Γ)}(zeros(2), Matrix(0.01*I(2))) , MS.Gaussian{(:F,:�
 
 
 
-iters = 1500
-@time θs, guidedsegs, frac_accepted = mcmc2(tree, Xd, f, g, θinit, prior; iters=iters)      #, 𝒫=(:F,:Γ,:c))#, dt = dt0)
-
-# using Profile
-# Profile.clear()
-# @profile θs, guidedsegs, frac_accepted = mcmc2(tree, Xd, f, g, θinit, prior; iters=iters)#, 𝒫=(:F,:Γ,:c))#, dt = dt0)
-# Juno.profiler()
-
+iters = 500
+@time θs, guidedsegs, frac_accepted = mcmc2(tree, Xd, f, g, θinit, prior;
+  iters=iters)#, 𝒫=(:F,:Γ,:c))#, dt = dt0)
 
 
 ## summary stats
@@ -206,12 +203,6 @@ if STOP==false
     se = sqrt.(diag(cov(G)))
     display(map((p̂, se, p) -> "$(round(p̂, digits=3)) ± $(round(se, digits=3)) (true: $p)", p̂, se, θ0[1]))
 end
-
-
-
-
-
-
 
 
 # function mcmc(tree, Xd, f, g, θlin, θinit, prior; ρ=0.99, iters=5000, dt=0.01, σprop=0.05, precisionatleaves=10e-6)

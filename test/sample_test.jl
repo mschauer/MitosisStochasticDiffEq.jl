@@ -137,7 +137,7 @@ end
       sol2, solend2 = MSDE.sample(k2, u0, MSDE.EulerMaruyama!(), save=true)
       Random.seed!(seed)
       # inplace must be written out manually
-      @test_broken ol3, solend3 = MSDE.sample(k3, u0, MSDE.EulerMaruyama!(), save=true)
+      @test_broken sol3, solend3 = MSDE.sample(k3, u0, MSDE.EulerMaruyama!(), save=true)
       Random.seed!(seed)
       sol4, solend4 = MSDE.sample(k4, u0, MSDE.EulerMaruyama!(), save=true)
       Random.seed!(seed)

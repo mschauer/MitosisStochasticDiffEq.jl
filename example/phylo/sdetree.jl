@@ -51,11 +51,6 @@ function innov(t, 𝕏_)
     myNoiseGrid(t,brownian_values)
 end
 
-# Ws = cumsum([[zero(u0)];[sqrt(trange[i+1]-ti)*randn(size(u0))
-# for (i,ti) in enumerate(trange[1:end-1])]])
-# NG = NoiseGrid(trange,Ws)
-
-
 
 """
   pcn_innov(Z, ρ)
@@ -78,7 +73,7 @@ Starting value is rootval.
 Returns Xd::Vector{𝕏} and segs, which is a vector of ODE-sols. Note that segs[1] should be skipped (not defined)
 """
 #function forwardsample(tree::Tree, rootval::𝕏, θ, dt0, f, g)
-function forwardsample(tree::Tree, rootval, θ, dt0, f, g)
+function forwardsample(tree::Tree, rootval, θ, dt0, f, g, SDEalg)
     Xd = [rootval]    # save endpoints
     segs = Vector{Any}(undef, tree.n) # save all guided segments
     for i in eachindex(tree.T)
@@ -92,11 +87,16 @@ function forwardsample(tree::Tree, rootval, θ, dt0, f, g)
         dt = (tree.T[i] - t)/m
 
         u = Xd[i′]   # starting value
-        κ = MSDE.SDEKernel(f, g, t:dt:tree.T[i], θ)
-        # new fast implementation....
-        x, xT = MSDE.sample(κ, u,  MSDE.EulerMaruyama!(); save_noise=true)
-        #x, xT = MSDE.sample(κ, u; save_noise=true)
-        push!(Xd, xT[end])
+        # set noise_rate_prototype for comparison with StochasticDiffEq package
+        κ = MSDE.SDEKernel(f, g, t:dt:tree.T[i], θ, Diagonal(θ[2]))
+        # choose SDEalg =  MSDE.EulerMaruyama!() for new fast solver...
+        NG = innov(t:dt:tree.T[i], 𝕏)
+        x, xT = MSDE.sample(κ, u, SDEalg, NG)
+        if SDEalg isa MSDE.EulerMaruyama!
+          push!(Xd, xT[end])
+        else
+          push!(Xd, xT)
+        end
         segs[i] = x
     end
     Xd, segs
@@ -127,10 +127,10 @@ function bwfiltertree!(Q, tree::Tree, θlin, dt0; apply_time_change=false, alg=T
 
         κ̃ = MSDE.SDEKernel(MS.AffineMap(θlin[1], θlin[2]), MS.ConstantMap(θlin[3]), tvals, θlin)
 
-        #        message, u = MSDE.backwardfilter(κ̃, Q[i], alg=OrdinaryDiffEq.Tsit5(), abstol=1e-12, reltol=1e-12, apply_timechange=apply_time_change)
+        # message, u = MSDE.backwardfilter(κ̃, Q[i], alg=OrdinaryDiffEq.Tsit5(), abstol=1e-12, reltol=1e-12, apply_timechange=apply_time_change)
         message, u = MSDE.backwardfilter(κ̃, Q[i], apply_timechange=apply_time_change, alg=alg)
         messages[i] = message
-        if tree.lastone[i] #    last child is encountered first backwards
+        if tree.lastone[i] # last child is encountered first backwards
             Q[ipar] = u
         else
             Q[ipar] = MS.fuse(u, Q[ipar]; unfused=false)[2]
@@ -152,8 +152,7 @@ function fwguidtree!(X, guidedsegs, Q, messages, tree::Tree, f, g, θ, Z; apply_
         i == 1 && continue  # skip root-node (has no parent)
         κ = MSDE.SDEKernel(f, g, messages[i].ts, θ, zeros(d,d))
         ipar = tree.Par[i]
-        #solfw, llnew = MSDE.forwardguiding(κ, messages[i], (X[ipar], 0.0), Z[i-1]; inplace=false, save_noise=true, apply_timechange=apply_time_change)
-        solfw, llnew = MSDE.forwardguiding(κ, messages[i], (X[ipar], 0.0), MSDE.EulerMaruyama!(), Z[i-1], 
+        solfw, llnew = MSDE.forwardguiding(κ, messages[i], (X[ipar], 0.0), MSDE.EulerMaruyama!(), Z[i-1],
                                                             inplace=false, apply_timechange=apply_time_change)
         ll[i] = llnew + ll[ipar] * tree.lastone[i]
         X[i] = solfw[end][3]

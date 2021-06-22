@@ -23,7 +23,7 @@ fig2 = plot(0:iters, getindex.(first.(θs), 2), color=:blue, title="θ₂")
 plot!(fig1, 0:iters, fill(θ0[1][1], iters+1), color=:green)
 plot!(fig2, 0:iters, fill(θ0[1][2], iters+1), color=:green)
 pl = plot(fig1, fig2, layout = (2, 1), legend = false)
-png("./figs/trace_theta.png")
+savefig(pl, "./Figures/trace_theta.png")
 
 
 ## trace plots of pars
@@ -32,7 +32,7 @@ fig2 = plot(0:iters, getindex.(last.(θs), 2), color=:blue, title="σ₂")
 plot!(fig1, 0:iters, fill(θ0[2][1], iters+1), color=:green)
 plot!(fig2, 0:iters, fill(θ0[2][2], iters+1), color=:green)
 pl = plot(fig1, fig2, layout = (2, 1), legend = false)
-png("./figs/trace_sigma.png")
+savefig(pl, "./Figures/trace_sigma.png")
 
 
 
@@ -51,7 +51,7 @@ for i in 2:tree.n
 end
 pl = plot(pl1, pl2, layout=(2,1), legend=false)
 display(pl)
-png("./figs/dataforward.png")
+savefig(pl, "./Figures/dataforward.png")
 
 ## just the observations
 cols = repeat([:blue, :red, :magenta, :orange],2)
@@ -68,7 +68,7 @@ for i in 2:tree.n
 end
 pl = plot(pl1, pl2, layout=(2,1), legend=false)
 display(pl)
-png("./figs/observations.png")
+savefig(pl, "./Figures/observations.png")
 
 
 ## some segments of guided process at final iteration
@@ -84,4 +84,4 @@ end
 display(pl)
 pl = plot(pl1, pl2, layout = (2, 1), legend = false)
 display(pl)
-png("./figs/guidedforward.png")
+savefig(pl, "./Figures/guidedforward.png")

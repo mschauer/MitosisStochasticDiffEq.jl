@@ -6,11 +6,6 @@ using ForwardDiff: Dual, value, partials
 const D1 = Dual{Nothing, Float64, 1}
 const D𝕏 = typeof(D1.(zero(𝕏)))
 
-
-
-
-
-
 function sfwguidtree!(X, guidedsegs, messages, tree::Tree, f, g, θ, Z; apply_time_change=false)
     ll = zeros(D1, tree.n)
     l = rand(tree.lids)
@@ -27,7 +22,7 @@ function sfwguidtree!(X, guidedsegs, messages, tree::Tree, f, g, θ, Z; apply_ti
     for i in eachindex(tree.T)
         i == 1 && continue  # skip root-node (has no parent)
         ipar = tree.Par[i]
-        if active[i] 
+        if active[i]
             κ = MSDE.SDEKernel(f, g, messages[i].ts, θ)
             solfw, llnew = MSDE.forwardguiding(κ, messages[i], (X[ipar], 0.0), Z[i-1]; inplace=false, save_noise=true, apply_timechange=apply_time_change)
             X[i] = D𝕏(solfw[end][1:end-1])
