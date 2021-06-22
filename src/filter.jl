@@ -23,10 +23,11 @@ function backwardfilter(k::SDEKernel, (c, μ, Σ)::NamedTuple{(:logscale, :μ, :
 end
 
 # covariance filter ODE Eqs.
-compute_dP(B,P,σtil) = B*P + P*B' - outer_(σtil)
+compute_dP(B,P,σtil) = convert(typeof(P), B*P + P*B' - outer_(σtil))
 compute_dP(B,P::SArray,σtil::Number) = B*P + P*B' - σtil*σtil'*similar_type(P, Size(size(P,1),size(P,1)))(I)
+
 compute_dν(B,ν,β::Number) = B*ν .+ β
-compute_dν(B,ν,β) = B*ν + β
+compute_dν(B,ν,β) = convert(typeof(ν),B*ν + β)
 
 function compute_dP!(dP,B,P,σtil)
   dP .= B*P + P*B' - outer_(σtil)
@@ -91,7 +92,7 @@ function _backwardfilter(filter::CovarianceFilter,k::SDEKernel, (c, ν, P);
   end
 
   if !OrdinaryDiffEq.isadaptive(alg)
-    sol = solve(prob, alg, tstops=_ts, abstol=abstol, reltol=reltol)
+    sol = solve(prob, alg, tstops=_ts)
   else
     sol = solve(prob, alg, dt=get_dt(k.trange), tstops=_ts, abstol=abstol, reltol=reltol)
   end
@@ -183,7 +184,7 @@ end
 function solν(t,T,B,β,νT)
   #TODO
   # β time-dependent
-  νT*Φfunc(t,T,-B) + Φfunc(t,T,-B)*β*inv(B)*(Φfunc(t,T,B)-1)
+  Φfunc(t,T,B)*(νT + inv(B)*β) - inv(B)*β
 end
 
 function solc(t,T,B,cT)
@@ -208,6 +209,7 @@ function _backwardfilter(filter::LyapunovFilter,k::SDEKernel, (c, ν, P); apply_
   # solve Lyapunov equation
   B, β, σtil = p
   atil = construct_a(σtil,P)
+  (B isa Symmetric) && (B = Array(B))
   Σ = lyap(B,atil)
 
   if !apply_timechange
@@ -217,9 +219,19 @@ function _backwardfilter(filter::LyapunovFilter,k::SDEKernel, (c, ν, P); apply_
   end
 
   sol = solLyapunov(k, Σ, ν, P, c)
-  soldis = hcat(sol.(_ts)...)
+
+
+  u = sol.(_ts)
+  T = eltype(eltype(u))
+  N = length((size(u[1])..., length(u)))
+  SciMLsol = SciMLBase.ODESolution{T,N,typeof(u),Nothing,Nothing,typeof(_ts),Nothing,
+                        Nothing,Nothing,Nothing,Nothing}(
+                        u,nothing,nothing,
+                        _ts,nothing,nothing,nothing,nothing,true,0,nothing,:Success)
+                                           
+  soldis = construct_discrete_sol(u)
 
   message = Message(k, sol, soldis, _ts, filter)
 
-  return message, soldis[:,1]
+  return message, SciMLsol[1]
 end

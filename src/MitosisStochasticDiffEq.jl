@@ -11,6 +11,7 @@ using UnPack
 using Statistics
 using StaticArrays
 using ForwardDiff
+using PaddedViews
 
 import SciMLBase.isinplace
 
@@ -21,5 +22,6 @@ include("guiding.jl")
 include("regression.jl")
 include("utils.jl")
 include("derivative_utils.jl")
+include("solver.jl")
 
 end

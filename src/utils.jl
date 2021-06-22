@@ -14,6 +14,10 @@ timechange(s, tstart=first(s), tend=last(s)) = tstart .+ (s .- tstart).*(2.0 .- 
 
 isinplace(R::AbstractRegression{inplace}) where {inplace} = inplace
 
+# linear approximation
+(a::AffineMap)(u,p,t) = a.B*u .+ a.β
+(a::ConstantMap)(u,p,t) = a.x
+
 function convert_message(message, F1::InformationFilter, F2::CovarianceFilter)
   @unpack ktilde, ts, soldis, sol = message
   # P = inv(H)
@@ -30,4 +34,53 @@ function convert_message(message, F1::CovarianceFilter, F2::InformationFilter)
   # F = Hν
 
   return Message(ktilde, ts, soldis, nothing)
+end
+
+function construct_discrete_sol(sol::SciMLBase.ODESolution)
+  soldis = reverse(Array(sol), dims=2)
+  ν, P, c = myunpack(sol.u[1])
+  d = length(ν)
+  #TODO: only store views, make an option for Cholesky(P), qr(P), etc.
+  return [( view(cols,1:d), reshape(view(cols, d+1:d+d*d),d,d), cols[end]) for cols in eachcol(soldis)]
+end
+
+
+function construct_discrete_sol(sol::AbstractVector)
+  ν, P, c = myunpack(sol[1])
+  d = length(ν)
+  #TODO: only store views, make an option for Cholesky(P), qr(P), etc.
+  return [( view(cols,1:length(ν)), reshape(view(cols, d+1:d+d*d),d,d), cols[end]) for cols in sol]
+end
+
+# handle noise conversion between solvers
+function compute_Z(::Nothing, ::Nothing, trange, u0)
+    n = length(trange)
+
+    return collect(zip(1:n, trange, cumsum([[zero(u0)];[sqrt(trange[i+1]-ti)*randn(size(u0))
+            for (i,ti) in enumerate(trange[1:end-1])]])))
+end
+
+function compute_Z(::Nothing, noise_rate_prototype, trange, u0)
+    n = length(trange)
+
+    return collect(zip(1:n, trange, cumsum([[zeros(size(noise_rate_prototype,2))];[sqrt(trange[i+1]-ti)*randn(size(noise_rate_prototype,2))
+            for (i,ti) in enumerate(trange[1:end-1])]])))
+end
+
+function compute_Z(Z::DiffEqNoiseProcess.NoiseGrid, noise_rate_prototype, trange, u0)
+    n = length(trange)
+
+    return collect(zip(1:n, trange, Z.W))
+end
+
+function compute_Z(Z::DiffEqNoiseProcess.NoiseWrapper, noise_rate_prototype, trange, u0)
+    n = length(trange)
+
+    return collect(zip(1:n, trange, Z.source.W))
+end
+
+function compute_Z(Z, noise_rate_prototype, trange, u0)
+    n = length(trange)
+
+    return collect(zip(1:n, trange, Z))
 end

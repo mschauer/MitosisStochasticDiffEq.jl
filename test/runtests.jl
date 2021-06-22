@@ -1,4 +1,4 @@
-using MitosisStochasticDiffEq
+import MitosisStochasticDiffEq as MSDE
 using Test
 
 println("Run tests.")
@@ -11,3 +11,4 @@ println("Run tests.")
 @time include("mitosis_test.jl")
 @time include("regression_test.jl")
 @time include("ensemble_test.jl")
+@time include("solver_convergence_test.jl")

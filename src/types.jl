@@ -1,10 +1,44 @@
-struct SDEKernel{fType,gType,tType,pType}
+abstract type AbstractSDEKernel
+end
+
+struct SDEKernel{fType,gType,tType,pType,NRPType} <: AbstractSDEKernel
   f::fType
   g::gType
   trange::tType
   p::pType
+  noise_rate_prototype::NRPType
+  constant_diffusity::Bool
 end
 
+struct SDEKernel!{fType,gType,gstep!Type,tType,pType,NRPType,wsType} <: AbstractSDEKernel
+  f::fType
+  g::gType
+  gstep!::gstep!Type
+  trange::tType
+  p::pType
+  noise_rate_prototype::NRPType
+  ws::wsType
+  constant_diffusity::Bool
+end
+function make_gstep(g) #g has signature  g(du,u,p,t)
+  function gstep!(dx, ws, x, p, t, dw, noise_rate_prototype)
+    if noise_rate_prototype===nothing
+      g(ws, x, p, t)
+      dx .+= ws .* dw
+    else
+      g(ws, x, p,t)
+      dx .+= ws * dw
+    end
+  end
+end
+
+function SDEKernel(f,g,trange,p=nothing,noise_rate_prototype=nothing,constant_diffusity=false)
+  SDEKernel{typeof(f),typeof(g),typeof(trange),typeof(p),typeof(noise_rate_prototype)}(f,g,trange,p,noise_rate_prototype,constant_diffusity)
+end
+
+function SDEKernel!(f,g,gstep!,trange,p=nothing,noise_rate_prototype=nothing,constant_diffusity=false; ws = copy(noise_rate_prototype))
+  SDEKernel!{typeof(f),typeof(g),typeof(gstep!),typeof(trange),typeof(p),typeof(noise_rate_prototype),typeof(ws)}(f,g,gstep!, trange,p,noise_rate_prototype, ws, constant_diffusity)
+end
 abstract type AbstractFilteringAlgorithm end
 
 struct CovarianceFilter <: AbstractFilteringAlgorithm end
@@ -28,7 +62,7 @@ struct Message{kernelType,solType,sol2Type,tType,filterType}
 end
 
 function Message(sol, sdekernel::SDEKernel, filter, apply_timechange=false)
-  soldis = reverse(Array(sol), dims=2)
+  soldis = construct_discrete_sol(sol)
   if OrdinaryDiffEq.isadaptive(sol.alg) || apply_timechange
     ts = reverse(sol.t)
   else
@@ -43,8 +77,13 @@ struct GuidingDriftCache{kernelType,messageType}
   message::messageType
 end
 
-struct GuidingDiffusionCache{gType}
+struct GuidingDiffusionVectorCache{gType}
   g::gType
+end
+
+struct GuidingDiffusionCache{gType,sizeType}
+  g::gType
+  padded_size::sizeType
 end
 
 abstract type AbstractRegression{inplace} end
@@ -178,4 +217,31 @@ end
 function Regression!(sdekernel,yprototype;kwargs...)
   iip=DiffEqBase.isinplace(sdekernel.g,4)
   Regression!{iip}(sdekernel,yprototype;kwargs...)
+end
+
+# internal solvers
+abstract type AbstractInternalSolver end
+
+struct EulerMaruyama! <: AbstractInternalSolver end
+
+struct DefaultForwardGuidingP end
+
+"""
+    tangent!(du, u, dz, P)
+
+!! May change `du`, but has to return it. !!
+
+"""
+function tangent!
+end
+
+
+struct GuidedSDE{kType, mType}
+  kernel::kType
+  message::mType
+end
+
+struct GuidedSDE!{kType, mType}
+  kernel::kType
+  message::mType
 end

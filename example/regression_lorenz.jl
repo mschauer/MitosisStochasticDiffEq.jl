@@ -1,4 +1,4 @@
-using MitosisStochasticDiffEq
+import MitosisStochasticDiffEq as MSDE
 using Mitosis
 using Statistics
 using LinearAlgebra
@@ -54,13 +54,13 @@ end
 
 
 # Solve the regression problem
-sdekernel = MitosisStochasticDiffEq.SDEKernel(f,g,trange,p)
+sdekernel = MSDE.SDEKernel(f,g,trange,p)
 
 ϕprototype = zeros((3,3)) # prototypes for vectors
 yprototype = zeros((3,))
-R = MitosisStochasticDiffEq.Regression!(sdekernel,
+R = MSDE.Regression!(sdekernel,
   yprototype,paramjac_prototype=ϕprototype,paramjac=f_jac,intercept=ϕ0)
-G = MitosisStochasticDiffEq.conjugate(R, sol, 0.1*I(3))
+G = MSDE.conjugate(R, sol, 0.1*I(3))
 
 # Estimate
 p̂ = mean(G)
