@@ -17,7 +17,7 @@ const d = 2
 const 𝕏 = SVector{d,Float64}
 # needed for StochasticDiffEq package where we simulate d+1 states in forwardguiding
 # to compute the likelihood.
-#const 𝕏_ = SVector{d+1,Float64}
+const 𝕏_ = SVector{d+1,Float64}
 const MS = Mitosis
 const MSDE = MitosisStochasticDiffEq
 
@@ -51,7 +51,7 @@ g(u,θ,t) = Diagonal(exp.(θ[2]))
 ## forward sample on the tree to simulate the observations at the tips
 dt0 = 0.001
 u0 = zero(𝕏)  # value at root node
-Xd, segs = forwardsample(tree, u0, θ0, dt0, f, g)
+Xd, segs = forwardsample(tree, u0, θ0, dt0, f, g, EM(false))
 
 
 
@@ -70,7 +70,8 @@ function mcmc2(tree, Xd, f, g, θinit, prior;
                  apply_time_change=true,
                  𝒫=(:μ,:Σ,:c),  # 𝒫=(:F,:\Gamma,:c)
                  recomputeguidingterm=true,
-                 alg=Tsit5()
+                 alg=Tsit5(),
+                 SDEalg=EM(false),
                  )
     #σ0 = θinit[2]
 
@@ -97,8 +98,12 @@ function mcmc2(tree, Xd, f, g, θinit, prior;
     end
 
 
-    Z = [innov(messages[i].ts, 𝕏) for i ∈ 2:tree.n]  # skip first message, which is not defined (root node)
-    X, guidedsegs, ll, 𝐋 = fwguidtree!(X, guidedsegs, Q, messages, tree, f, g, θ, Z)
+    if SDEalg isa MSDE.EulerMaruyama!
+        Z = [innov(messages[i].ts, 𝕏) for i ∈ 2:tree.n]  # skip first message, which is not defined (root node)
+    else
+        Z = [innov(messages[i].ts, 𝕏_) for i ∈ 2:tree.n]
+    end
+    X, guidedsegs, ll, 𝐋 = fwguidtree!(X, guidedsegs, Q, messages, tree, f, g, θ, Z, SDEalg)
 
     Xᵒ, guidedsegsᵒ, Qᵒ = deepcopy(X), deepcopy(guidedsegs), deepcopy(Q)
     θs = [θinit]
@@ -107,14 +112,18 @@ function mcmc2(tree, Xd, f, g, θinit, prior;
     for iter in 1:iters
         #θᵒ = (θ[1] + σprop * randn(size(θ[1])...), σ0)
         θᵒ = (θ[1] + σprop * randn(size(θ[1])...), θ[2] + σprop * randn(size(θ[2])...))
-        Zᵒ =  [pcn_innov(Z[i], ρ, 𝕏) for i ∈ eachindex(Z)]
+        if SDEalg isa MSDE.EulerMaruyama!
+            Zᵒ =  [pcn_innov(Z[i], ρ, 𝕏) for i ∈ eachindex(Z)]
+        else
+            Zᵒ =  [pcn_innov(Z[i], ρ, 𝕏_) for i ∈ eachindex(Z)]
+        end
         θlinᵒ = (0.9B(θᵒ), zeros(d), σ̃(θᵒ))
         if recomputeguidingterm==true
             Qᵒ, messagesᵒ = bwfiltertree!(Qᵒ, tree, θlinᵒ, dt, apply_time_change=apply_time_change,  alg=alg)
         else
             Qᵒ = Q
         end
-        Xᵒ, guidedsegsᵒ, llᵒ, 𝐋ᵒ = fwguidtree!(Xᵒ, guidedsegsᵒ, Qᵒ, messagesᵒ, tree, f, g, θᵒ, Zᵒ)
+        Xᵒ, guidedsegsᵒ, llᵒ, 𝐋ᵒ = fwguidtree!(Xᵒ, guidedsegsᵒ, Qᵒ, messagesᵒ, tree, f, g, θᵒ, Zᵒ, SDEalg)
         Δ = 𝐋ᵒ - 𝐋 + logdensity(prior[1], θᵒ[1]) - logdensity(prior[1], θ[1]) + logdensity(prior[2], θᵒ[2]) - logdensity(prior[2], θ[2])
 
         if mod(iter, 10) == 0

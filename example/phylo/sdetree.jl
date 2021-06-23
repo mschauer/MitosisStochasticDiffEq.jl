@@ -146,16 +146,20 @@ Returns updated `X` and `guidedsegs`, as also the loglikelihood vector `ll` (at 
 `𝐋` the loglikelihood summed over all leaf-indices.
 """
 
-function fwguidtree!(X, guidedsegs, Q, messages, tree::Tree, f, g, θ, Z; apply_time_change=false)
+function fwguidtree!(X, guidedsegs, Q, messages, tree::Tree, f, g, θ, Z, SDEalg; apply_time_change=false)
     ll = zeros(tree.n)
     for i in eachindex(tree.T)
         i == 1 && continue  # skip root-node (has no parent)
         κ = MSDE.SDEKernel(f, g, messages[i].ts, θ, zeros(d,d))
         ipar = tree.Par[i]
-        solfw, llnew = MSDE.forwardguiding(κ, messages[i], (X[ipar], 0.0), MSDE.EulerMaruyama!(), Z[i-1],
+        solfw, llnew = MSDE.forwardguiding(κ, messages[i], (X[ipar], 0.0), SDEalg, Z[i-1],
                                                             inplace=false, apply_timechange=apply_time_change)
         ll[i] = llnew + ll[ipar] * tree.lastone[i]
-        X[i] = solfw[end][3]
+        if SDEalg isa MSDE.EulerMaruyama!
+            X[i] = solfw[end][3]
+        else
+            X[i] = solfw[end][1:d]
+        end
         guidedsegs[i] = solfw
     end
     𝐋 = sum(ll[tree.lids]) + logdensity(Q[1], X[1]) #logdensity(convert(WGaussian{(:F,:Γ,:c)},Q[1]), X[1])
