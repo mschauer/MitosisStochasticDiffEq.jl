@@ -36,7 +36,7 @@ function _sample(k::Union{SDEKernel,SDEKernel!}, u0, alg::Union{StochasticDiffEq
 
   prob = construct_sample_Problem(k, u0, Z, alg)
   sol = solve(prob, alg, tstops = trange; kwargs...)
-  return sol, sol[end]
+  return sol.t, sol.u, sol[end], sol.W
 end
 
 
@@ -50,7 +50,11 @@ function _sample(k::Union{SDEKernel,SDEKernel!}, u0, alg::AbstractInternalSolver
     uu = nothing
   end
   uu, uT = solve!(alg, uu, u, Z, P)
-  return uu, uT
+  if save
+    return getindex.(uu,2), getindex.(uu,3), uT[end], Z
+  else
+    return nothing, nothing, uT[end], getindex.(Z,3)
+  end
 end
 
 

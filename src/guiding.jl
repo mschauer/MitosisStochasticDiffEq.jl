@@ -192,22 +192,22 @@ function _forwardguiding(k::SDEKernel, message, (x0, ll0), alg::Union{Stochastic
 
   if numtraj==nothing
     if !isadaptive
-      sol = solve(prob, alg, tstops=message.ts; kwargs...)
+      sol = solve(prob, alg, tstops=message.ts, adaptive=isadaptive; kwargs...)
     else
       sol = solve(prob, alg, dt=dt, adaptive=isadaptive; kwargs...)
     end
+    return sol.t, [x[1:length(x0)] for x in sol.u], sol.u[end], sol.W, sol[end][end]
   else
     ensembleprob = EnsembleProblem(prob, output_func = output_func)
     if !isadaptive
       sol = solve(ensembleprob, alg, ensemblealg=ensemblealg,
-          tstops=message.ts, trajectories=numtraj; kwargs...)
+          tstops=message.ts, trajectories=numtraj, adaptive=isadaptive; kwargs...)
     else
       sol = solve(ensembleprob, alg, ensemblealg=ensemblealg,
           dt=dt, adaptive=isadaptive, trajectories=numtraj; kwargs...)
     end
+    return sol, sol[end][end]
   end
-
-  return sol, sol[end][end]
 end
 
 function _forwardguiding(k::SDEKernel, message, (x0, ll0), alg::AbstractInternalSolver, Z; P=nothing, save=true, inplace=inplace, kwargs...)
@@ -224,7 +224,7 @@ function _forwardguiding(k::SDEKernel, message, (x0, ll0), alg::AbstractInternal
     uu = nothing
   end
   uu, uT = solve!(alg, uu, u, Z, P)
-  return uu, uT[end]
+  return getindex.(uu,2), getindex.(uu,3), uT[3], getindex.(Z,3), uT[end]
 end
 
 function tangent!(du, u, dz, P::GuidedSDE!)

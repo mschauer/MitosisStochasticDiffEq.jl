@@ -106,14 +106,14 @@ g(u,p,t) = p[3] .- 0.2*(1 .-sin.(u))
   x0 = randn()
   ll0 = randn()
 
-  solfw, ll = MSDE.forwardguiding(sdekernel, message, (x0, ll0); save_noise=true)
+  ts1, u1, uend1, noise1, ll = MSDE.forwardguiding(sdekernel, message, (x0, ll0); save_noise=true)
 
 
-  dWs = (solfw.W[1,2:end]-solfw.W[1,1:end-1])
+  dWs = (noise1[1,2:end]-noise1[1,1:end-1])
   ps = message.soldis
   solfw2, ll2 = forwardguiding(plin, pest, message.ts, (x0, ll0),ps,dWs)
 
-  @test isapprox(solfw[1,:], solfw2, rtol=1e-12)
+  @test isapprox(getindex.(u1,1), solfw2, rtol=1e-12)
   @test isapprox(ll, ll2, rtol=1e-12)
 
   # multivariate tests with scalar random process
@@ -140,12 +140,12 @@ g(u,p,t) = p[3] .- 0.2*(1 .-sin.(u))
 
   x0 = randn(dim)
   ll0 = randn()
-  solfw, ll = MSDE.forwardguiding(sdekernel, message, (x0, ll0), EM(false), NG)
+  ts1, u1, uend1, noise1, ll = MSDE.forwardguiding(sdekernel, message, (x0, ll0), EM(false), NG)
 
   ps = message.soldis
   solfw2, ll2 = forwardguiding(plin, pest, message.ts, (x0, ll0), ps, W)
 
-  @test isapprox(Array(solfw)[1:dim,:], hcat(solfw2 ...), rtol=1e-12)
+  @test isapprox(u1, solfw2, rtol=1e-12)
   @test isapprox(ll, ll2, rtol=1e-12)
 
   # multivariate tests with diagonal noise random process
@@ -167,19 +167,20 @@ g(u,p,t) = p[3] .- 0.2*(1 .-sin.(u))
   x0 = randn(dim)
   ll0 = randn()
 
-  solfw, ll = MSDE.forwardguiding(sdekernel, message, (x0, ll0); save_noise=true)
+  ts1, u1, uend1, noise1, ll = MSDE.forwardguiding(sdekernel, message, (x0, ll0); save_noise=true)
 
-  Ws = Array(solfw.W)
-  dWs = Ws[1:dim,2:end]-Ws[1:dim,1:end-1]
+  dWs = noise1[1:dim,2:end]-noise1[1:dim,1:end-1]
 
   ps = message.soldis
   solfw2, ll2 = forwardguiding(plin, pest, message.ts, (x0, ll0),ps,dWs,:diag)
 
-  @test isapprox(Array(solfw)[1:dim,:], hcat(solfw2 ...), rtol=1e-12)
+  @test isapprox(u1, solfw2, rtol=1e-12)
   @test isapprox(ll, ll2, rtol=1e-12)
 end
 
+
 @testset "OOP Guiding tests" begin
+
   # set true model parameters
   p = [-0.1,0.2,0.9]
 
@@ -212,14 +213,13 @@ end
   x0 = randn()
   ll0 = randn()
 
-  solfw, ll = MSDE.forwardguiding(sdekernel, message, (x0, ll0); save_noise=true, inplace=false)
+  ts1, u1, uend1, noise1, ll = MSDE.forwardguiding(sdekernel, message, (x0, ll0); save_noise=true, inplace=false)
 
-
-  dWs = (solfw.W[1,2:end]-solfw.W[1,1:end-1])
+  dWs = (noise1[1,2:end]-noise1[1,1:end-1])
   ps = message.soldis
   solfw2, ll2 = forwardguiding(plin, pest, message.ts, (x0, ll0),ps,dWs)
 
-  @test isapprox(solfw[1,:], solfw2, rtol=1e-12)
+  @test isapprox(getindex.(u1,1), solfw2, rtol=1e-12)
   @test isapprox(ll, ll2, rtol=1e-12)
 
   # multivariate tests with scalar random process
@@ -246,12 +246,12 @@ end
 
   x0 = randn(dim)
   ll0 = randn()
-  solfw, ll = MSDE.forwardguiding(sdekernel, message, (x0, ll0), EM(false), NG, inplace=false)
+  ts1, u1, uend1, noise1, ll  = MSDE.forwardguiding(sdekernel, message, (x0, ll0), EM(false), NG, inplace=false)
 
   ps = message.soldis
   solfw2, ll2 = forwardguiding(plin, pest, message.ts, (x0, ll0), ps, W)
 
-  @test isapprox(Array(solfw)[1:dim,:], hcat(solfw2 ...), rtol=1e-12)
+  @test isapprox(u1, solfw2, rtol=1e-12)
   @test isapprox(ll, ll2, rtol=1e-12)
 
   # multivariate tests with diagonal noise random process
@@ -273,18 +273,17 @@ end
   x0 = randn(dim)
   ll0 = randn()
 
-  solfw, ll = MSDE.forwardguiding(sdekernel, message, (x0, ll0); save_noise=true, inplace=false)
+  ts1, u1, uend1, noise1, ll  = MSDE.forwardguiding(sdekernel, message, (x0, ll0); save_noise=true, inplace=false)
 
-  Ws = Array(solfw.W)
+  Ws = Array(noise1)
   dWs = Ws[1:dim,2:end]-Ws[1:dim,1:end-1]
 
   ps = message.soldis
   solfw2, ll2 = forwardguiding(plin, pest, message.ts, (x0, ll0),ps,dWs,:diag)
 
-  @test isapprox(Array(solfw)[1:dim,:], hcat(solfw2 ...), rtol=1e-12)
+  @test isapprox(u1, solfw2, rtol=1e-12)
   @test isapprox(ll, ll2, rtol=1e-12)
 end
-
 
 
 
@@ -328,22 +327,25 @@ end
   x0 = randn()
   ll0 = randn()
 
-  solfw, ll = MSDE.forwardguiding(sdekernel, message, (x0, ll0), LambaEM(),
+  ts1, u1, uend1, _, ll = MSDE.forwardguiding(sdekernel, message, (x0, ll0), LambaEM(),
             W; dt=dt, isadaptive=false)
-  solfw2, ll2 = MSDE.forwardguiding(sdekernel, message, (x0, ll0), LambaEM(),
+  ts2, u2, uend2, _, ll2 = MSDE.forwardguiding(sdekernel, message, (x0, ll0), LambaEM(),
             W; dt=dt, isadaptive=true)
-  solfw3, ll3 = MSDE.forwardguiding(sdekernel, message, (x0, ll0), SOSRI(),
+  ts3, u3, uend3, _, ll3 = MSDE.forwardguiding(sdekernel, message, (x0, ll0), SOSRI(),
             W; dt=dt, isadaptive=true)
 
   @test isapprox(ll, ll2, rtol=1e-1)
   @test isapprox(ll, ll3, rtol=1e-1)
   @test isapprox(ll2, ll2, rtol=1e-1)
-  @test isapprox(solfw(solfw2.t).u, solfw2.u, rtol=1e-1)
-  @test isapprox(solfw(solfw3.t).u, solfw3.u, rtol=1e-1)
 
-  @show length(solfw.t), length(solfw2.t), length(solfw3.t)
+  @test length(ts1) == length(trange)
+  @test length(ts2) < length(ts1)
+  @test length(ts3) < length(ts1)
 
+  @show length(ts1), length(ts2), length(ts3)
 end
+
+
 
 @testset "timechange Guiding tests" begin
   Random.seed!(12345)
@@ -379,12 +381,12 @@ end
   x0 = randn()
   ll0 = randn()
 
-  solfw, ll = MSDE.forwardguiding(sdekernel, message, (x0, ll0);
+  ts, u, uend, _, ll = MSDE.forwardguiding(sdekernel, message, (x0, ll0);
     isadaptive=false)
 
-  @test isapprox(solfw.t, message.ts, rtol=1e-10)
-  @test isapprox(solfw.t, MSDE.timechange(trange), rtol=1e-10)
-  @test length(solfw.t) == length(trange)
+  @test isapprox(ts, message.ts, rtol=1e-10)
+  @test isapprox(ts, MSDE.timechange(trange), rtol=1e-10)
+  @test length(ts) == length(trange)
 end
 
 @testset "Reuse of noise values tests" begin
@@ -428,25 +430,25 @@ end
   ll0 = randn()
 
   # test two subsequent evaluations with same Brownian motion given by NoiseGrid
-  solfw, ll = MSDE.forwardguiding(sdekernel, message, (x0, ll0), EM(), W; dt=dt)
-  solfw2, ll2 = MSDE.forwardguiding(sdekernel, message, (x0, ll0), EM(), W; dt=dt)
+  ts1, u1, uend1, noise1, ll1 = MSDE.forwardguiding(sdekernel, message, (x0, ll0), EM(), W; dt=dt)
+  ts2, u2, uend2, noise2, ll2 = MSDE.forwardguiding(sdekernel, message, (x0, ll0), EM(), W; dt=dt)
 
-  @test isapprox(ll, ll2, rtol=1e-14)
-  @test isapprox(solfw.u, solfw2.u, rtol=1e-14)
-  @test isapprox(solfw.W.W, solfw2.W.W, rtol=1e-14)
-  @test isapprox(solfw.W.W, W.W, rtol=1e-14)
+  @test isapprox(ll1, ll2, rtol=1e-14)
+  @test isapprox(u1, u2, rtol=1e-14)
+  @test isapprox(noise1.W, noise2.W, rtol=1e-14)
+  @test isapprox(noise1.W, W.W, rtol=1e-14)
 
   # test pCN with \rho = 1
-  solfw, ll = MSDE.forwardguiding(sdekernel, message, (x0, ll0), EM(); dt=dt, save_noise=true)
+  ts1, u1, uend1, noise1, ll1 = MSDE.forwardguiding(sdekernel, message, (x0, ll0), EM(); dt=dt, save_noise=true)
 
-  Z = pCN(solfw.W, 1.0)
+  Z = pCN(noise1, 1.0)
 
-  solfw2, ll2 = MSDE.forwardguiding(sdekernel, message, (x0, ll0), EM(), Z; dt=dt)
+  ts2, u2, uend2, noise2, ll2 = MSDE.forwardguiding(sdekernel, message, (x0, ll0), EM(), Z; dt=dt)
 
-  @test isapprox(ll, ll2, rtol=1e-14)
-  @test isapprox(solfw.u, solfw2.u, rtol=1e-14)
-  @test isapprox(solfw.W.W, solfw2.W.W, rtol=1e-14)
-  @test isapprox(solfw.W.W, Z.W, rtol=1e-14)
+  @test isapprox(ll1, ll2, rtol=1e-14)
+  @test isapprox(u1, u2, rtol=1e-14)
+  @test isapprox(noise1.W, noise1.W, rtol=1e-14)
+  @test isapprox(noise1.W, Z.W, rtol=1e-14)
   @test W.W != Z.W
 
 
@@ -457,23 +459,23 @@ end
   # backward kernel
   kerneltilde = MSDE.SDEKernel(Mitosis.AffineMap(B, β), Mitosis.ConstantMap(σ̃), trange, plin)
   message, backward = MSDE.backwardfilter(kerneltilde, NT)
-  solfw, ll = MSDE.forwardguiding(sdekernel, message, (x0, ll0), EM(); dt=dt, save_noise=true)
+  ts1, u1, uend1, noise1, ll1 = MSDE.forwardguiding(sdekernel, message, (x0, ll0), EM(); dt=dt, save_noise=true)
 
-  Z = pCN(solfw.W, ρ)
+  Z = pCN(noise1, ρ)
 
-  solfw2, ll2 = MSDE.forwardguiding(sdekernel, message, (x0, ll0), EM(), Z; dt=dt)
+  ts2, u2, uend2, noise2, ll2 = MSDE.forwardguiding(sdekernel, message, (x0, ll0), EM(), Z; dt=dt)
 
   computedW(W, indx, dt) = (W[indx+1][1]-W[indx][1])/sqrt(dt) # likelihood part can be ignored
   dWnew = []
   dWold = []
-  for i in 1:length(solfw.t[1:end-1])
-    push!(dWnew,computedW(solfw.W.W,i,dt))
-    push!(dWold,computedW(solfw2.W.W,i,dt))
+  for i in 1:length(ts1[1:end-1])
+    push!(dWnew,computedW(noise1.W,i,dt))
+    push!(dWold,computedW(noise2.W,i,dt))
   end
   @show cor(dWnew,dWold)
   @test ≈(cor(dWnew,dWold),ρ,rtol=1e-1)
-
 end
+
 
 
 @testset "flag-constant and matrix-valued diffusivity tests" begin
@@ -511,11 +513,11 @@ end
   κ̃ = MSDE.SDEKernel(Mitosis.AffineMap(θlin[1], θlin[2]), Mitosis.ConstantMap(θlin[3]), trange, θlin)
 
   # forward sample
-  x, xT = MSDE.sample(κ1, u0; save_noise=true)
-  Z = NoiseWrapper(x.W)
-  x2, xT2 = MSDE.sample(κ2, u0, EM(false), Z)
+  ts, x, xT, noise = MSDE.sample(κ1, u0; save_noise=true)
+  Z = NoiseWrapper(noise)
+  _, x2, xT2,_ = MSDE.sample(κ2, u0, EM(false), Z)
 
-  @test x.u ≈ x2.u
+  @test x ≈ x2
   @test xT ≈ xT2
 
   # backward filter
@@ -533,13 +535,13 @@ end
   x0 = randn(d)
   ll0 = randn()
 
-  solfw1, ll1 = MSDE.forwardguiding(κg1, message, (x0, ll0); save_noise=true)
-  Z = pCN(solfw1.W, 1.0)
-  solfw2, ll2 = MSDE.forwardguiding(κg2, message, (x0, ll0), EM(false), Z)
+  ts1, u1, uend1, noise1, ll1 = MSDE.forwardguiding(κg1, message, (x0, ll0); save_noise=true)
+  Z = pCN(noise1, 1.0)
+  ts2, u2, uend2, noise2, ll2 = MSDE.forwardguiding(κg2, message, (x0, ll0), EM(false), Z)
 
   @test ll1 ≈ ll2
-  @test isapprox(solfw1.u, solfw2.u, rtol=1e-14)
-  @test isapprox(solfw1.W.W, solfw2.W.W, rtol=1e-14)
+  @test isapprox(u1, u2, rtol=1e-14)
+  @test isapprox(noise1.W, noise2.W, rtol=1e-14)
 
 
   # check guiding with matrix-valued diffusion
@@ -547,21 +549,21 @@ end
   kg3 = MSDE.SDEKernel(f, gmat, trange, θ, Σ(θ), true)
 
   # inplace=true
-  Z = pCN(solfw1.W, 1.0)
-  solfw3, ll3 = MSDE.forwardguiding(kg3, message, (x0, ll0), EM(false), Z)
+  Z = pCN(noise1, 1.0)
+  ts3, u3, uend3, noise3, ll3 = MSDE.forwardguiding(kg3, message, (x0, ll0), EM(false), Z)
   @test ll1 ≈ ll3
-  @test isapprox(solfw1.u, solfw3.u, rtol=1e-14)
+  @test isapprox(u1, u3, rtol=1e-14)
 
   # inplace=false
-  Z = pCN(solfw1.W, 1.0)
-  solfw3, ll3 = MSDE.forwardguiding(kg3, message, (x0, ll0), EM(false), Z, inplace=false)
+  Z = pCN(noise1, 1.0)
+  ts3, u3, uend3, noise3, ll3 = MSDE.forwardguiding(kg3, message, (x0, ll0), EM(false), Z, inplace=false)
   @test ll1 ≈ ll3
-  @test isapprox(solfw1.u, solfw3.u, rtol=1e-14)
+  @test isapprox(u1, u3, rtol=1e-14)
 end
 
 
 
-@testset "multivariate forward guidng tests" begin
+@testset "multivariate forward guiding tests" begin
   seed = 12345
   Random.seed!(seed)
   d = 2
@@ -599,7 +601,7 @@ end
   k3 = MSDE.SDEKernel(Mitosis.AffineMap(θlin[1], θlin[2]), Mitosis.ConstantMap(θlin[3]), trange, θlin, Σ(θlin))
 
 
-  sol, solend = MSDE.sample(k1, u0, EM(false), save_noise=true)
+  _, sol, solend,_ = MSDE.sample(k1, u0, EM(false), save_noise=true)
   v = solend
   c = randn()
   Pmat = randn(d,d)
@@ -618,17 +620,17 @@ end
   ll0 = randn()
 
   @testset "StochasticDiffEq EM() solver" begin
-    sol1, ll1 = MSDE.forwardguiding(k1, message1, (u0, ll0), EM(false); save_noise=true)
-    Z = pCN(sol1.W, 1.0)
-    sol2, ll2 = MSDE.forwardguiding(k2, message2, (u0, ll0), EM(false), Z; save_noise=true)
-    Z = pCN(sol1.W, 1.0)
-    sol3, ll3 = MSDE.forwardguiding(k3, message3, (u0, ll0), EM(false), Z; save_noise=true)
-    Z = pCN(sol1.W, 1.0)
-    sol4, ll4 = MSDE.forwardguiding(k3, message4, (u0, ll0), EM(false), Z; save_noise=true)
+    ts1, u1, uend1, noise1, ll1 = MSDE.forwardguiding(k1, message1, (u0, ll0), EM(false); save_noise=true)
+    Z = pCN(noise1, 1.0)
+    ts2, u2, uend2, noise2, ll2 = MSDE.forwardguiding(k2, message2, (u0, ll0), EM(false), Z; save_noise=true)
+    Z = pCN(noise1, 1.0)
+    ts3, u3, uend3, noise3, ll3 = MSDE.forwardguiding(k3, message3, (u0, ll0), EM(false), Z; save_noise=true)
+    Z = pCN(noise1, 1.0)
+    ts4, u4, uend4, noise4, ll4 = MSDE.forwardguiding(k3, message4, (u0, ll0), EM(false), Z; save_noise=true)
 
-    @test sol1.u ≈ sol2.u rtol=1e-14
-    @test sol1.u ≈ sol3.u rtol=1e-14
-    @test sol1.u ≈ sol4.u rtol=1e-14
+    @test u1 ≈ u2 rtol=1e-14
+    @test u1 ≈ u3 rtol=1e-14
+    @test u1 ≈ u4 rtol=1e-14
     @test ll1 == ll2
     @test ll1 == ll3
     @test ll1 == ll4
@@ -637,16 +639,16 @@ end
   @testset "internal solver" begin
     @testset "without passing a noise" begin
       Random.seed!(seed)
-      sol1, ll1 = MSDE.forwardguiding(k1, message1, (u0, ll0), MSDE.EulerMaruyama!(), inplace=false)
+      ts1, u1, uend1, noise1, ll1 = MSDE.forwardguiding(k1, message1, (u0, ll0), MSDE.EulerMaruyama!(), inplace=false)
       Random.seed!(seed)
-      sol2, ll2 = MSDE.forwardguiding(k2, message2, (u0, ll0), MSDE.EulerMaruyama!(), inplace=false)
+      ts2, u2, uend2, noise2, ll2 = MSDE.forwardguiding(k2, message2, (u0, ll0), MSDE.EulerMaruyama!(), inplace=false)
       Random.seed!(seed)
-      sol3, ll3 = MSDE.forwardguiding(k3, message3, (u0, ll0), MSDE.EulerMaruyama!(), inplace=false)
+      ts3, u3, uend3, noise3, ll3 = MSDE.forwardguiding(k3, message3, (u0, ll0), MSDE.EulerMaruyama!(), inplace=false)
       Random.seed!(seed)
-      sol4, ll4 = MSDE.forwardguiding(k3, message4, (u0, ll0), MSDE.EulerMaruyama!(), inplace=false)
-      @test minimum(isapprox.(sol1[end],sol2[end],rtol=1e-14))
-      @test minimum(isapprox.(sol1[end],sol3[end],rtol=1e-14))
-      @test minimum(isapprox.(sol1[end],sol4[end],rtol=1e-14))
+      ts4, u4, uend4, noise4, ll4 = MSDE.forwardguiding(k3, message4, (u0, ll0), MSDE.EulerMaruyama!(), inplace=false)
+      @test isapprox(uend1,uend2,rtol=1e-14)
+      @test isapprox(uend1,uend3,rtol=1e-14)
+      @test isapprox(uend1,uend4,rtol=1e-14)
       @test ll1 == ll2
       @test ll1 == ll3
       @test ll1 == ll4
@@ -660,18 +662,18 @@ end
       Wsaug = [vcat(W,zero(eltype(W))) for W in Ws]
       NGaug = NoiseGrid(trange,Wsaug)
 
-      solEM, llEM = MSDE.forwardguiding(k3, message4, (u0, ll0), EM(false), NGaug, inplace=false)
-      sol1, ll1 = MSDE.forwardguiding(k1, message1, (u0, ll0), MSDE.EulerMaruyama!(), NG, inplace=false)
-      sol2, ll2 = MSDE.forwardguiding(k2, message2, (u0, ll0), MSDE.EulerMaruyama!(), NG, inplace=false)
-      sol3, ll3 = MSDE.forwardguiding(k3, message3, (u0, ll0), MSDE.EulerMaruyama!(), NG, inplace=false)
-      sol4, ll4 = MSDE.forwardguiding(k3, message4, (u0, ll0), MSDE.EulerMaruyama!(), NG, inplace=false)
+      tsEM, uEM, uendEM, noiseEM, llEM = MSDE.forwardguiding(k3, message4, (u0, ll0), EM(false), NGaug, inplace=false)
+      ts1, u1, uend1, noise1, ll1 = MSDE.forwardguiding(k1, message1, (u0, ll0), MSDE.EulerMaruyama!(), NG, inplace=false)
+      ts2, u2, uend2, noise2, ll2 = MSDE.forwardguiding(k2, message2, (u0, ll0), MSDE.EulerMaruyama!(), NG, inplace=false)
+      ts3, u3, uend3, noise3, ll3 = MSDE.forwardguiding(k3, message3, (u0, ll0), MSDE.EulerMaruyama!(), NG, inplace=false)
+      ts4, u4, uend4, noise4, ll4 = MSDE.forwardguiding(k3, message4, (u0, ll0), MSDE.EulerMaruyama!(), NG, inplace=false)
 
-      @test hcat(getindex.(sol1,3)...) ≈ solEM[1:2,:] rtol=1e-12
+      @test u1 ≈ uEM rtol=1e-12
       @test llEM ≈ ll1 rtol=1e-12
 
-      @test minimum(isapprox.(sol1[end],sol2[end],rtol=1e-14))
-      @test minimum(isapprox.(sol1[end],sol3[end],rtol=1e-14))
-      @test minimum(isapprox.(sol1[end],sol4[end],rtol=1e-14))
+      @test isapprox(uend1,uend2,rtol=1e-14)
+      @test isapprox(uend1,uend3,rtol=1e-14)
+      @test isapprox(uend1,uend4,rtol=1e-14)
       @test ll1 == ll2
       @test ll1 == ll3
       @test ll1 == ll4
@@ -686,22 +688,21 @@ end
       Wsaug = [vcat(W,zero(eltype(W))) for W in Ws]
       NGaug = NoiseGrid(trange,Wsaug)
 
-      solEM, llEM = MSDE.forwardguiding(k3, message4, (u0, ll0), EM(false), NGaug, inplace=false)
-      sol1, ll1 = MSDE.forwardguiding(k1, message1, (u0, ll0), MSDE.EulerMaruyama!(), Ws, inplace=false)
-      sol2, ll2 = MSDE.forwardguiding(k2, message2, (u0, ll0), MSDE.EulerMaruyama!(), Ws, inplace=false)
-      sol3, ll3 = MSDE.forwardguiding(k3, message3, (u0, ll0), MSDE.EulerMaruyama!(), Ws, inplace=false)
-      sol4, ll4 = MSDE.forwardguiding(k3, message4, (u0, ll0), MSDE.EulerMaruyama!(), Ws, inplace=false)
+      tsEM, uEM, uendEM, noiseEM, llEM = MSDE.forwardguiding(k3, message4, (u0, ll0), EM(false), NGaug, inplace=false)
+      ts1, u1, uend1, noise1, ll1  = MSDE.forwardguiding(k1, message1, (u0, ll0), MSDE.EulerMaruyama!(), Ws, inplace=false)
+      ts2, u2, uend2, noise2, ll2 = MSDE.forwardguiding(k2, message2, (u0, ll0), MSDE.EulerMaruyama!(), Ws, inplace=false)
+      ts3, u3, uend3, noise3, ll3 = MSDE.forwardguiding(k3, message3, (u0, ll0), MSDE.EulerMaruyama!(), Ws, inplace=false)
+      ts4, u4, uend4, noise4, ll4 = MSDE.forwardguiding(k3, message4, (u0, ll0), MSDE.EulerMaruyama!(), Ws, inplace=false)
 
-      @test hcat(getindex.(sol1,3)...) ≈ solEM[1:2,:] rtol=1e-12
+      @test u1 ≈ uEM rtol=1e-12
       @test llEM ≈ ll1 rtol=1e-12
 
-      @test minimum(isapprox.(sol1[end],sol2[end],rtol=1e-14))
-      @test minimum(isapprox.(sol1[end],sol3[end],rtol=1e-14))
-      @test minimum(isapprox.(sol1[end],sol4[end],rtol=1e-14))
+      @test isapprox(uend1,uend2,rtol=1e-14)
+      @test isapprox(uend1,uend3,rtol=1e-14)
+      @test isapprox(uend1,uend4,rtol=1e-14)
       @test ll1 == ll2
       @test ll1 == ll3
       @test ll1 == ll4
     end
-
   end
 end
