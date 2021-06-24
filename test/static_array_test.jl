@@ -82,7 +82,8 @@ samples2 = MSDE.forwardguiding(sdekernel2, message2,
 
 @test isapprox(samples1[1], samples2[1], rtol=1e-10)
 @test isapprox(samples1[2], samples2[2], rtol=1e-10)
-@test typeof(samples2[2][end]) <: SArray
+@test_broken typeof(samples2[2][end]) <: SArray
+@test typeof(samples2[3]) <: SArray
 end
 
 @testset "static tilde parameter tests" begin
