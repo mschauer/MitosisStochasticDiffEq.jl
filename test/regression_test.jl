@@ -106,7 +106,7 @@ end
   G2 = MSDE.conjugate(R2, u, 0.1*I(2), ts)
   G3 = MSDE.conjugate(R3, u, 0.1*I(2), ts)
   G4 = MSDE.conjugate(R4, u, 0.1*I(2), ts)
-  Gtest = conjugate_posterior(ts, u, 0.1*I(2), par, g)
+  Gtest = conjugate_posterior(ts, u, 0.1*I(2), par, goop)
 
   @testset "Regression! oop tests" begin
     @test G ≈ Gtest rtol=1e-10
@@ -257,7 +257,7 @@ end
 
   G = MSDE.conjugate(R, sol, 0.1*I(2))
   G2 = MSDE.conjugate(R2, sol, 0.1*I(2))
-  G3 = conjugate_posterior(sol, 0.1*I(2))
+  G3 = conjugate_posterior(sol.t, sol.u, 0.1*I(2), par, goop)
 
   @testset "iip tests" begin
     @test G ≈ G3 rtol=1e-10
