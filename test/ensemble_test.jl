@@ -54,7 +54,11 @@ end
 x0 = 1.34
 ll0 = randn()
 
-samples1 = [MSDE.forwardguiding(sdekernel, message, (x0, ll0))[2][end,1] for k in 1:K]
+samples1 = []
+for k=1:K
+  push!(samples1, MSDE.forwardguiding(sdekernel, message, (x0, ll0))[2][end][1])
+end
+
 samples2 = MSDE.forwardguiding(sdekernel, message, (x0, ll0), numtraj=K)[1][1,end,:]
 
 @testset "ensemble guiding tests" begin
