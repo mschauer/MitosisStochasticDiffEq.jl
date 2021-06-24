@@ -1,4 +1,5 @@
 import MitosisStochasticDiffEq as MSDE
+using Mitosis, DiffEqNoiseProcess, StochasticDiffEq
 using Test, Random
 using LinearAlgebra
 
@@ -26,11 +27,12 @@ using LinearAlgebra
               for (i,ti) in enumerate(trange[1:end-1])]])
       NG = NoiseGrid(trange,Ws)
 
-      solEM, solendEM = MSDE.sample(kernel, u0, EM(false), NG)
-      sol1, solend1 = MSDE.sample(kernel, u0, MSDE.EulerMaruyama!(), Ws)
+      uendEM, (tsEM, uEM, noiseEM) = MSDE.sample(kernel, u0, EM(false), NG)
+      uend1, (ts1, u1, noise1) = MSDE.sample(kernel, u0, MSDE.EulerMaruyama!(), Ws)
 
-      @test getindex.(sol1,3) ≈ solEM.u rtol=1e-12
-      @test solendEM ≈ solend1[3] rtol=1e-12
+      @test tsEM ≈ ts1 rtol=1e-12
+      @test uEM ≈ u1 rtol=1e-12
+      @test uendEM ≈ uend1 rtol=1e-12
     end
   end
 
