@@ -36,10 +36,9 @@ WG = (;logscale = 0.0, μ=uT, Σ=SMatrix{4,4}(Diagonal([0.0000001, 0.0000001, 0.
 
 message, solend = MSDE.backwardfilter(kerneltilde, WG)
 
-solfw, ll = MSDE.forwardguiding(sdekernel, message, (u0, 0.0),
+ts, u, uend, noise, ll = MSDE.forwardguiding(sdekernel, message, (u0, 0.0),
    Z=nothing; inplace=false, save_noise=true)
 
-u = solfw.u
 using Makie
 pl = lines(getindex.(u, 1), getindex.(u, 2))
 #lines!(pl, getindex.(u, 3), getindex.(u, 4), color=:blue)
