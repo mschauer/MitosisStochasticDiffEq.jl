@@ -15,9 +15,6 @@ using DiffEqNoiseProcess
 
 const d = 2
 const 𝕏 = SVector{d,Float64}
-# needed for StochasticDiffEq package where we simulate d+1 states in forwardguiding
-# to compute the likelihood.
-const 𝕏_ = SVector{d+1,Float64}
 const MS = Mitosis
 const MSDE = MitosisStochasticDiffEq
 
@@ -97,12 +94,8 @@ function mcmc2(tree, Xd, f, g, θinit, prior;
         X[id] = Xd[id]
     end
 
+    Z = [myinnov(messages[i].ts, 𝕏) for i ∈ 2:tree.n]
 
-    if SDEalg isa MSDE.EulerMaruyama!
-        Z = [innov(messages[i].ts, 𝕏) for i ∈ 2:tree.n]  # skip first message, which is not defined (root node)
-    else
-        Z = [innov(messages[i].ts, 𝕏_) for i ∈ 2:tree.n]
-    end
     X, guidedsegs, ll, 𝐋 = fwguidtree!(X, guidedsegs, Q, messages, tree, f, g, θ, Z, SDEalg)
 
     Xᵒ, guidedsegsᵒ, Qᵒ = deepcopy(X), deepcopy(guidedsegs), deepcopy(Q)
@@ -112,11 +105,7 @@ function mcmc2(tree, Xd, f, g, θinit, prior;
     for iter in 1:iters
         #θᵒ = (θ[1] + σprop * randn(size(θ[1])...), σ0)
         θᵒ = (θ[1] + σprop * randn(size(θ[1])...), θ[2] + σprop * randn(size(θ[2])...))
-        if SDEalg isa MSDE.EulerMaruyama!
-            Zᵒ =  [pcn_innov(Z[i], ρ, 𝕏) for i ∈ eachindex(Z)]
-        else
-            Zᵒ =  [pcn_innov(Z[i], ρ, 𝕏_) for i ∈ eachindex(Z)]
-        end
+        Zᵒ =  [pcn_innov(Z[i], ρ, 𝕏) for i ∈ eachindex(Z)]
         θlinᵒ = (0.9B(θᵒ), zeros(d), σ̃(θᵒ))
         if recomputeguidingterm==true
             Qᵒ, messagesᵒ = bwfiltertree!(Qᵒ, tree, θlinᵒ, dt, apply_time_change=apply_time_change,  alg=alg)

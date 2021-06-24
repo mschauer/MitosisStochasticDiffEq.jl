@@ -39,12 +39,12 @@ function myNoiseGrid(t,W,Z=nothing;reset=true)
 end
 
 """
-  innov(t)
+  myinnov(t)
 
 t:  either an array of Numbers or StepRangeLen{Number}
 returns NoiseGrid, with a Wiener process on the grid t
 """
-function innov(t, 𝕏_)
+function myinnov(t, 𝕏_)
     dt = diff(t)
     w = [sqrt(dt[i])*randn(𝕏_) for i in 1:length(t)-1]
     brownian_values = cumsum(pushfirst!(w, zero(𝕏_)))
@@ -59,7 +59,7 @@ update NoiseGrid Z by pCN-step with parameter ρ. Taking ρ=1 just returns a
 NoiseGrid with the same values as in Z
 """
 function pcn_innov(Z, ρ, 𝕏_)
-    Znew = innov(Z.t, 𝕏_)
+    Znew = myinnov(Z.t, 𝕏_)
     a = cumsum(pushfirst!(ρ * diff(Z.W) + sqrt(1. - ρ^2) * diff(Znew.W), zero(𝕏_)))
     myNoiseGrid(Z.t, a)
 end
@@ -90,14 +90,10 @@ function forwardsample(tree::Tree, rootval, θ, dt0, f, g, SDEalg)
         # set noise_rate_prototype for comparison with StochasticDiffEq package
         κ = MSDE.SDEKernel(f, g, t:dt:tree.T[i], θ, Diagonal(θ[2]))
         # choose SDEalg =  MSDE.EulerMaruyama!() for new fast solver...
-        NG = innov(t:dt:tree.T[i], 𝕏)
-        x, xT = MSDE.sample(κ, u, SDEalg, NG)
-        if SDEalg isa MSDE.EulerMaruyama!
-          push!(Xd, xT[end])
-        else
-          push!(Xd, xT)
-        end
-        segs[i] = x
+        NG = myinnov(t:dt:tree.T[i], 𝕏)
+        xT, seg  = MSDE.sample(κ, u, SDEalg, NG)
+        push!(Xd, xT)
+        segs[i] = seg
     end
     Xd, segs
 end
@@ -152,15 +148,12 @@ function fwguidtree!(X, guidedsegs, Q, messages, tree::Tree, f, g, θ, Z, SDEalg
         i == 1 && continue  # skip root-node (has no parent)
         κ = MSDE.SDEKernel(f, g, messages[i].ts, θ, zeros(d,d))
         ipar = tree.Par[i]
-        solfw, llnew = MSDE.forwardguiding(κ, messages[i], (X[ipar], 0.0), SDEalg, Z[i-1],
+        (solend, llnew), res = MSDE.forwardguiding(κ, messages[i], (X[ipar], 0.0), SDEalg, Z[i-1],
                                                             inplace=false, apply_timechange=apply_time_change)
         ll[i] = llnew + ll[ipar] * tree.lastone[i]
-        if SDEalg isa MSDE.EulerMaruyama!
-            X[i] = solfw[end][3]
-        else
-            X[i] = solfw[end][1:d]
-        end
-        guidedsegs[i] = solfw
+        X[i] = solend
+        X[i] = solfw[end][1:d]
+        guidedsegs[i] = res
     end
     𝐋 = sum(ll[tree.lids]) + logdensity(Q[1], X[1]) #logdensity(convert(WGaussian{(:F,:Γ,:c)},Q[1]), X[1])
     X, guidedsegs, ll, 𝐋

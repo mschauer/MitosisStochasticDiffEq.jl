@@ -60,31 +60,33 @@ Wsns = cumsum([[zero(u0ns)];[sqrt(ts[i+1]-ti)*randn(size(u0ns))
   for (i,ti) in enumerate(ts[1:end-1])]])
 NGns = NoiseGrid(ts,Wsns)
 κns = MSDE.SDEKernel(fns, gns, ts, θ0, zeros(d,d))
-x1ns, xT1ns = MSDE.sample(κns, u0ns, MSDE.EulerMaruyama!(), NGns)
-x2ns, xT2ns = MSDE.sample(κns, u0ns, EM(false), NGns)
-@test xT1ns[end] ≈ xT2ns
+xT1ns, _ = MSDE.sample(κns, u0ns, MSDE.EulerMaruyama!(), NGns)
+xT2ns, _ = MSDE.sample(κns, u0ns, EM(false), NGns)
+@test xT1ns ≈ xT2ns
 
 ## forward sample no tree static arrays
 ts = 0.0:dt0:1.0
 Ws = 𝕏.(Wsns)
 NG = NoiseGrid(ts,Ws)
 κ = MSDE.SDEKernel(f, g, ts, θ0, zeros(d,d))
-x1, xT1 = MSDE.sample(κ, u0, MSDE.EulerMaruyama!(), NG)
-x2, xT2 = MSDE.sample(κ, u0, EM(false), NGns) # needs oop
-@test xT1[end] ≈ xT1ns[end]
-@test xT1[end] ≈ xT2
+xT1, _ = MSDE.sample(κ, u0, MSDE.EulerMaruyama!(), NG)
+xT2, _ = MSDE.sample(κ, u0, EM(false), NGns) # needs oop
+@test xT1 ≈ xT1ns
+@test xT1 ≈ xT2
 
-NG = innov(ts, 𝕏)
-x1, xT1 = MSDE.sample(κ, u0, MSDE.EulerMaruyama!(), NG)
-x2, xT2 = MSDE.sample(κ, u0, EM(false), NG)
-@test xT1[end] ≈ xT2
+NG = myinnov(ts, 𝕏)
+xT1, _ = MSDE.sample(κ, u0, MSDE.EulerMaruyama!(), NG)
+xT2, _ = MSDE.sample(κ, u0, EM(false), NG)
+@test xT1 ≈ xT2
 # dpesn't have same randomness?
-# Random.seed!(seed)
-# x1, xT1 = MSDE.sample(κ, u0, MSDE.EulerMaruyama!())
-# Random.seed!(seed)
-# x2, xT2 = MSDE.sample(κ, u0, EM(false); save_noise=true)
-# @test xT1[end] ≈ xT1ns[end]
-# @test xT1[end] ≈ xT2
+Random.seed!(seed)
+xT1, (t1,x1,n1) = MSDE.sample(κ, u0, MSDE.EulerMaruyama!())
+Random.seed!(seed)
+xT2, (t2,x2,n2) = MSDE.sample(κ, u0, EM(false); save_noise=true)
+@test xT1 ≈ xT1ns
+@test t1 ≈ t2
+@test_broken n1 ≈ n2
+@test_broken xT1 ≈ xT2
 
 ## forward sample on the tree to simulate the observations at the tips
 
@@ -93,6 +95,27 @@ Xd1, segs1 = forwardsample(tree, u0, θ0, dt0, f, g, MSDE.EulerMaruyama!())
 Random.seed!(10)
 Xd2, segs2 = forwardsample(tree, u0, θ0, dt0, f, g, EM(false))
 
-@test getindex.(segs1[2],3) ≈ segs2[2].u
-@test getindex.(segs1[3],2) == segs2[3].t
-@show getindex.(segs1[3],3)[258:260] - segs2[3].u[258:260]
+@test_broken Xd1 ≈ Xd2
+@test segs1[3][1] ≈ segs2[3][1]
+@test_broken segs1[3][2][258:260] ≈ segs2[3][2][258:260]
+@show segs1[3][2][258:260] - segs2[3][2][258:260]
+@show segs1[3][3][258:260] - segs2[3][3][258:260]
+
+
+# backward filtering
+leavescov = inv(10e5) * SA_F64[1 0; 0 1]
+Q = [i in tree.lids ? WGaussian{(:μ,:Σ,:c)}(Xd[i], leavescov, 0.0) : missing for i in tree.ids]
+θlin = (B(θinit), zeros(d), σ̃(θinit))
+dt = 0.01
+Q, messages = bwfiltertree!(Q, tree, θlin, dt)
+
+
+# forward guiding
+guidedsegs = Vector{Any}(undef, tree.n) # save all guided segments
+X = zeros(𝕏, tree.n)  # values at nodes
+for id in tree.lids
+    X[id] = Xd[id]
+end
+
+Z = [myinnov(messages[i].ts, 𝕏) for i ∈ 2:tree.n]
+fwguidtree!(X, guidedsegs, Q, messages, tree, f, g, θ0, Z, EM(false))
