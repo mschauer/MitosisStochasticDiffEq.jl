@@ -13,32 +13,25 @@ prior precision matrix `Ξ` with non-conjugate parameters fixed in the model.
 Adjusted from http://www.math.chalmers.se/~smoritz/journal/2018/01/19/parameter-inference-for-a-simple-sir-model/
 for Bridge.jl
 """
-function conjugate_posterior(Y, Ξ)
+function conjugate_posterior(ts, Ys, Ξ, p, g)
     paramgrad(t, u) = [u, 1]
     paramintercept(t, u) = 0
-    t, y = Y.t[1], Y.u[1]
+    t, y = ts[1], Ys[1]
     ϕ = paramgrad(t, y)
     mu = zero(ϕ)
     G = zero(mu*mu')
 
-    #mulist = [mu]
-
-    for i in 1:length(Y)-1
+    for i in 1:length(Ys)-1
         ϕ = paramgrad(t, y)'
-        Gϕ = pinv(Y.prob.g(y, Y.prob.p, t)*Y.prob.g(y, Y.prob.p, t)')*ϕ # a is sigma*sigma'. Todo: smoothing like this is very slow
+        Gϕ = pinv(g(y, p, t)*g(y, p, t)')*ϕ # a is sigma*sigma'. Todo: smoothing like this is very slow
         zi = ϕ'*Gϕ
-        t2, y2 = Y.t[i + 1], Y.u[i + 1]
+        t2, y2 = ts[i + 1], Ys[i + 1]
         dy = y2 - y
         ds = t2 - t
         #@show size(mu), size(Gϕ'), (dy - paramintercept(t, y)*ds)
         mu = mu + Gϕ'*(dy - paramintercept(t, y)*ds)
         t, y = t2, y2
         G = G + zi*ds
-        # @show ϕ, mu, G+Ξ, zi, ds
-        # if i==2
-        #   error()
-        # end
-        # push!(mulist,mu)
     end
     Mitosis.Gaussian{(:F,:Γ)}(mu, G + Ξ)#, mulist
 end
@@ -94,12 +87,12 @@ end
 
   # sample using MSDE and EM default
   Random.seed!(100)
-  sol, solend = MSDE.sample(sdekernel, u0, save_noise=true)
+  ts, u, uend, noise = MSDE.sample(sdekernel, u0, save_noise=true)
   Random.seed!(100)
   # for later AD check
-  sol2, solend2 = MSDE.sample(sdekernel, [u0], save_noise=true)
-  @show solend
-  @show length(sol)
+  ts2, u2, uend2, noise2 = MSDE.sample(sdekernel, [u0], save_noise=true)
+  @show uend
+  @show length(u)
 
   R = MSDE.Regression!(sdekernel,yprototype,
       paramjac_prototype=ϕprototype,paramjac=f_jac,intercept=ϕ0)
@@ -109,11 +102,11 @@ end
   R4 = MSDE.Regression(sdekernel2,
       dyprototype=yprototype,paramjac=f_jacoop,intercept=ϕ0oop)
 
-  G = MSDE.conjugate(R, sol, 0.1*I(2))
-  G2 = MSDE.conjugate(R2, sol, 0.1*I(2))
-  G3 = MSDE.conjugate(R3, sol, 0.1*I(2))
-  G4 = MSDE.conjugate(R4, sol, 0.1*I(2))
-  Gtest = conjugate_posterior(sol, 0.1*I(2))
+  G = MSDE.conjugate(R, u, 0.1*I(2), ts)
+  G2 = MSDE.conjugate(R2, u, 0.1*I(2), ts)
+  G3 = MSDE.conjugate(R3, u, 0.1*I(2), ts)
+  G4 = MSDE.conjugate(R4, u, 0.1*I(2), ts)
+  Gtest = conjugate_posterior(ts, u, 0.1*I(2), par, g)
 
   @testset "Regression! oop tests" begin
     @test G ≈ Gtest rtol=1e-10
@@ -186,15 +179,15 @@ end
     # check θ function
     RAD = MSDE.Regression!(sdekernel,yprototype,
       paramjac_prototype=ϕprototype,intercept=ϕ0,θ=par[1:2])
-    GAD = MSDE.conjugate(RAD, sol, 0.1*I(2))
+    GAD = MSDE.conjugate(RAD, u, 0.1*I(2), ts)
     @test G ≈ GAD rtol=1e-10
 
     #check with intercept = nothing
     RAD = MSDE.Regression!(sdekernel,yprototype,
       paramjac_prototype=ϕprototype,θ=par[1:2])
     RAD2 = MSDE.Regression(sdekernel,θ=par[1:2],yprototype=yprototype)
-    GAD = MSDE.conjugate(RAD, sol, 0.1*I(2))
-    GAD2 = MSDE.conjugate(RAD2, sol2, 0.1*I(2))
+    GAD = MSDE.conjugate(RAD, u, 0.1*I(2), ts)
+    GAD2 = MSDE.conjugate(RAD2, u2, 0.1*I(2), ts2)
     @test G ≈ GAD rtol=1e-10
     @test G ≈ GAD2 rtol=1e-10
 
@@ -203,14 +196,13 @@ end
         paramjac_prototype=ϕprototype,θ=par[1:2])
     RAD4 = MSDE.Regression(sdekernel2,
         dyprototype=yprototype,yprototype=yprototype,θ=par[1:2])
-    GAD3 = MSDE.conjugate(RAD3, sol, 0.1*I(2))
-    GAD4 = MSDE.conjugate(RAD4, sol2, 0.1*I(2))
+    GAD3 = MSDE.conjugate(RAD3, u, 0.1*I(2), ts)
+    GAD4 = MSDE.conjugate(RAD4, u2, 0.1*I(2), ts2)
 
     @test G ≈ GAD3 rtol=1e-10
     @test G ≈ GAD4 rtol=1e-10
   end
 end
-
 
 @testset "regression SDE Problem tests" begin
   # define SDE function
