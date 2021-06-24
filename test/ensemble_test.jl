@@ -27,9 +27,10 @@ par = [-0.2, 0.1, 0.9]
 plin = copy(par)
 sdekernel = MSDE.SDEKernel(f,g,trange,par)
 
+
 @testset "ensemble sampling tests" begin
-  samples1 = MSDE.sample(sdekernel, u0, K, save_noise=false).u
-  samples2 = [MSDE.sample(sdekernel, u0, save_noise=false)[3] for _ in 1:K]
+  samples1 = MSDE.sample(sdekernel, u0, K, save_noise=false)
+  samples2 = [MSDE.sample(sdekernel, u0, save_noise=false)[1] for _ in 1:K]
 
   @test isapprox(mean(samples1), mean(samples2), rtol=1e-2)
   @test isapprox(cov(samples1), cov(samples2), rtol=1e-2)
@@ -56,10 +57,10 @@ ll0 = randn()
 
 samples1 = []
 for k=1:K
-  push!(samples1, MSDE.forwardguiding(sdekernel, message, (x0, ll0))[2][end][1])
+  push!(samples1, MSDE.forwardguiding(sdekernel, message, (x0, ll0))[1][1])
 end
 
-samples2 = MSDE.forwardguiding(sdekernel, message, (x0, ll0), numtraj=K)[1][1,end,:]
+samples2 = MSDE.forwardguiding(sdekernel, message, (x0, ll0), numtraj=K)[1][1]
 
 @testset "ensemble guiding tests" begin
   @test isapprox(mean(samples1), mean(samples2), rtol=1e-2)

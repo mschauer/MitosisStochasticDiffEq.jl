@@ -32,13 +32,11 @@ plin2 = par2 = [-0.1, -0.05, 1.0]
 sdekernel2 = MSDE.SDEKernel(f,g,trange,plin)
 sdekerneltilde2 = MSDE.SDEKernel(f,g,trange,plin2)
 
-
-
-ts, sol, y_ = MSDE.sample(sdekernel, u0, save_noise=true)
+y_, (ts, sol, _)  = MSDE.sample(sdekernel, u0, save_noise=true)
 
 y_ = 1.39
 y = vcat(y_)
-samples_ = MSDE.sample(sdekernel, u0, K, save_noise=true).u
+samples_ = MSDE.sample(sdekernel, u0, K, save_noise=true)
 
 samples = vcat.(samples_)
 
@@ -93,15 +91,15 @@ pT = kᵒ([u0])
 WG = WGaussian{(:μ,:Σ,:c)}(y_, 0.2, 0.0) # start with observation μ=y with uncertainty Σ=0.1
 message, solend = MSDE.backwardfilter(sdekernel, WG)
 
-ts1, u1, uend1, noise1, ll = MSDE.forwardguiding(sdekernel, message, (u0, 0.0), Z=nothing; save_noise=true)
+(uend1, ll), (ts1, u1, noise1) = MSDE.forwardguiding(sdekernel, message, (u0, 0.0), Z=nothing; save_noise=true)
 
 @test ll == 0
 
-samples = [MSDE.forwardguiding(sdekernel, message, (u0, 0.0), Z=nothing; save_noise=true)[2][end][1] for k in 1:K]
+samples = [MSDE.forwardguiding(sdekernel, message, (u0, 0.0), Z=nothing; save_noise=true)[1][1] for k in 1:K]
 
 @testset "Mitosis forward" begin
-    @test pT.μ[] ≈ mean(samples) atol=atol
-    @test pT.Σ[] ≈ cov(samples) atol=atol
+    @test pT.μ ≈ mean(samples) atol=atol
+    @test pT.Σ ≈ cov(samples) atol=atol
 end
 
 
@@ -117,13 +115,13 @@ message, solend = MSDE.backwardfilter(sdekerneltilde2, WG)
     @test inv(p2.Γ)[] ≈ solend.Σ atol=atol
 end
 
-ts1, u1, uend1, noise1, ll = MSDE.forwardguiding(sdekernel2, message, (u0, 0.0))
+(uend1, ll), (ts1, u1, noise1) = MSDE.forwardguiding(sdekernel2, message, (u0, 0.0))
 
 we((x,c)) = x*exp(c)
 samples2 = []
 for k=1:K
-    _, u1, uend1, _, _ll = MSDE.forwardguiding(sdekernel2, message, (u0, 0.0))
-    push!(samples2,[uend1[1], ll])
+    (uend1, ll), _ = MSDE.forwardguiding(sdekernel2, message, (u0, 0.0))
+    push!(samples2,[uend1, ll])
 end
 
 samples = we.(samples2)
@@ -132,8 +130,8 @@ samples = we.(samples2)
 ptrue = Mitosis.density(p, [u0])
 p̃ = Mitosis.density(WGaussian{(:F,:Γ,:c)}(solend.Σ\solend.μ, inv(solend.Σ), solend.c), u0)
 @testset "Mitosis tilted forward" begin
-    @test pT.μ[] ≈ mean(samples)*p̃/ptrue atol=atol
-    @test gᵒ.μ[] ≈ mean(first.(samples2)) atol=2atol
-    @test gᵒ.Σ[] ≈ cov(first.(samples2)) atol=2atol
-    @test gᵒ.c[] ≈ mean(last.(samples2)) atol=atol
+    @test pT.μ ≈ mean(samples)*p̃/ptrue atol=atol
+    @test gᵒ.μ ≈ mean(first.(samples2)) atol=2atol
+    @test gᵒ.Σ ≈ cov(first.(samples2)) atol=2atol
+    @test gᵒ.c ≈ mean(last.(samples2)) atol=atol
 end

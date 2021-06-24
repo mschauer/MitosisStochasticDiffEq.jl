@@ -27,8 +27,8 @@ using LinearAlgebra
               for (i,ti) in enumerate(trange[1:end-1])]])
       NG = NoiseGrid(trange,Ws)
 
-      tsEM, uEM, uendEM, noiseEM = MSDE.sample(kernel, u0, EM(false), NG)
-      ts1, u1, uend1, noise1 = MSDE.sample(kernel, u0, MSDE.EulerMaruyama!(), Ws)
+      uendEM, (tsEM, uEM, noiseEM) = MSDE.sample(kernel, u0, EM(false), NG)
+      uend1, (ts1, u1, noise1) = MSDE.sample(kernel, u0, MSDE.EulerMaruyama!(), Ws)
 
       @test tsEM ≈ ts1 rtol=1e-12
       @test uEM ≈ u1 rtol=1e-12

@@ -46,9 +46,9 @@ end
   sol, solend = MSDE.sample(kernel, u0)
 
   kernel = MSDE.SDEKernel(f,g,collect(trange),p)
-  ts, u, uend, noise = MSDE.sample(kernel, u0, save_noise=true)
+  uend, (ts, u, noise) = MSDE.sample(kernel, u0, save_noise=true)
 
-  @test isapprox(u, forwardsample(f,g,p,ts,noise.W,u0), atol=1e-12)
+  @test isapprox(u, forwardsample(f,g,p,ts,noise,u0), atol=1e-12)
 end
 
 
@@ -104,17 +104,18 @@ end
   k6 = MSDE.SDEKernel!(f!,g!,gstep!,trange,θlin,A; ws = copy(A))
 
   @testset "StochasticDiffEq EM() solver" begin
-    _, u1, uend1, noise1 = MSDE.sample(k1, u0, EM(false), save_noise=true)
-    Z = pCN(noise1, 1.0)
-    _, u2, uend2, _ = MSDE.sample(k2, u0, EM(false), Z, save_noise=true)
-    Z = pCN(noise1, 1.0)
-    _, u3, uend3, _ = MSDE.sample(k3, u0, EM(false), Z)
-    Z = pCN(noise1, 1.0)
-    _, u4, uend4, _ = MSDE.sample(k4, u0, EM(false), Z)
-    Z = pCN(noise1, 1.0)
-    _, u5, uend5, _ = MSDE.sample(k5, u0, EM(false), Z)
-    Z = pCN(noise1, 1.0)
-    _, u6, uend6, _ = MSDE.sample(k6, u0, EM(false), Z)
+    uend1, (ts1, u1, noise1) = MSDE.sample(k1, u0, EM(false), save_noise=true)
+    NG = NoiseGrid(ts1, noise1)
+    Z = pCN(NG, 1.0)
+    uend2, (ts2, u2, noise2) = MSDE.sample(k2, u0, EM(false), Z, save_noise=true)
+    Z = pCN(NG, 1.0)
+    uend3, (ts3, u3, noise3) = MSDE.sample(k3, u0, EM(false), Z)
+    Z = pCN(NG, 1.0)
+    uend4, (ts4, u4, noise4) = MSDE.sample(k4, u0, EM(false), Z)
+    Z = pCN(NG, 1.0)
+    uend5, (ts5, u5, noise5) = MSDE.sample(k5, u0, EM(false), Z)
+    Z = pCN(NG, 1.0)
+    uend6, (ts6, u6, noise6) = MSDE.sample(k6, u0, EM(false), Z)
 
     #@show solend1
     @test isapprox(u1, u2, atol=1e-12)
@@ -132,18 +133,18 @@ end
   @testset "internal solver" begin
     @testset "without passing a noise" begin
       Random.seed!(seed)
-      ts1, u1, uend1, _ = MSDE.sample(k1, u0, MSDE.EulerMaruyama!(), save=true)
+      uend1, (ts1, u1, noise1) = MSDE.sample(k1, u0, MSDE.EulerMaruyama!(), save=true)
       Random.seed!(seed)
-      _, u2, uend2, _ = MSDE.sample(k2, u0, MSDE.EulerMaruyama!(), save=true)
+      uend2, (ts2, u2, noise2) = MSDE.sample(k2, u0, MSDE.EulerMaruyama!(), save=true)
       Random.seed!(seed)
       # inplace must be written out manually
-      @test_broken _, u3, uend3, _ = MSDE.sample(k3, u0, MSDE.EulerMaruyama!(), save=true)
+      @test_broken uend3, (ts3, u3, noise3) = MSDE.sample(k3, u0, MSDE.EulerMaruyama!(), save=true)
       Random.seed!(seed)
-      _, u4, uend4, _ = MSDE.sample(k4, u0, MSDE.EulerMaruyama!(), save=true)
+      uend4, (ts4, u4, noise4) = MSDE.sample(k4, u0, MSDE.EulerMaruyama!(), save=true)
       Random.seed!(seed)
-      _, u5, uend5, _ = MSDE.sample(k5, u0, MSDE.EulerMaruyama!(), save=true)
+      uend5, (ts5, u5, noise5) = MSDE.sample(k5, u0, MSDE.EulerMaruyama!(), save=true)
       Random.seed!(seed)
-      _, u6, uend6, _ = MSDE.sample(k6, u0, MSDE.EulerMaruyama!(), save=true)
+      uend6, (ts6, u6, noise6) = MSDE.sample(k6, u0, MSDE.EulerMaruyama!(), save=true)
 
       @test length(ts1) == length(trange)
       @test ts1[end] == trange[end]
@@ -154,7 +155,7 @@ end
       @test uend1 == uend6
 
       Random.seed!(seed)
-      _, u7, uend7, _ = MSDE.sample(k1, u0, MSDE.EulerMaruyama!(), save=false)
+      uend7, (ts7, u7, noise7) = MSDE.sample(k1, u0, MSDE.EulerMaruyama!(), save=false)
       @test uend1 == uend7
       @test u7 === nothing
     end
@@ -165,13 +166,13 @@ end
               for (i,ti) in enumerate(trange[1:end-1])]])
       NG = NoiseGrid(trange,Ws)
 
-      tsEM, uEM, uendEM, noiseEM = MSDE.sample(k1, u0, EM(false), NG)
-      ts1, u1, uend1, noise1 = MSDE.sample(k1, u0, MSDE.EulerMaruyama!(), NG)
-      ts2, u2, uend2, noise2 = MSDE.sample(k2, u0, MSDE.EulerMaruyama!(), NG)
-      @test_broken ts3, u3, uend3, noise3 = MSDE.sample(k3, u0, MSDE.EulerMaruyama!(), NG)
-      ts4, u4, uend4, noise4 = MSDE.sample(k4, u0, MSDE.EulerMaruyama!(), NG)
-      ts5, u5, uend5, noise5 = MSDE.sample(k5, u0, MSDE.EulerMaruyama!(), NG)
-      ts6, u6, uend6, noise6 = MSDE.sample(k6, u0, MSDE.EulerMaruyama!(), NG)
+      uendEM, (tsEM, uEM, noiseEM) = MSDE.sample(k1, u0, EM(false), NG)
+      uend1, (ts1, u1, noise1) = MSDE.sample(k1, u0, MSDE.EulerMaruyama!(), NG)
+      uend2, (ts2, u2, noise2) = MSDE.sample(k2, u0, MSDE.EulerMaruyama!(), NG)
+      @test_broken uend3, (ts3, u3, noise3) = MSDE.sample(k3, u0, MSDE.EulerMaruyama!(), NG)
+      uend4, (ts4, u4, noise4) = MSDE.sample(k4, u0, MSDE.EulerMaruyama!(), NG)
+      uend5, (ts5, u5, noise5) = MSDE.sample(k5, u0, MSDE.EulerMaruyama!(), NG)
+      uend6, (ts6, u6, noise6) = MSDE.sample(k6, u0, MSDE.EulerMaruyama!(), NG)
 
       @test u1 ≈ uEM rtol=1e-12
       @test uendEM ≈ uend1 rtol=1e-12
@@ -188,13 +189,13 @@ end
               for (i,ti) in enumerate(trange[1:end-1])]])
       NG = NoiseGrid(trange,Ws)
 
-      tsEM, uEM, uendEM, noiseEM  = MSDE.sample(k1, u0, EM(false), NG)
-      ts1, u1, uend1, noise1 = MSDE.sample(k1, u0, MSDE.EulerMaruyama!(), Ws)
-      ts2, u2, uend2, noise2 = MSDE.sample(k2, u0, MSDE.EulerMaruyama!(), Ws)
-      @test_broken ts3, u3, uend3, noise3 = MSDE.sample(k3, u0, MSDE.EulerMaruyama!(), Ws)
-      ts4, u4, uend4, noise4 = MSDE.sample(k4, u0, MSDE.EulerMaruyama!(), Ws)
-      ts5, u5, uend5, noise5 = MSDE.sample(k5, u0, MSDE.EulerMaruyama!(), Ws)
-      ts6, u6, uend6, noise6 = MSDE.sample(k6, u0, MSDE.EulerMaruyama!(), Ws)
+      uendEM, (tsEM, uEM, noiseEM)  = MSDE.sample(k1, u0, EM(false), NG)
+      uend1, (ts1, u1, noise1) = MSDE.sample(k1, u0, MSDE.EulerMaruyama!(), Ws)
+      uend2, (ts2, u2, noise2) = MSDE.sample(k2, u0, MSDE.EulerMaruyama!(), Ws)
+      @test_broken uend3, (ts3, u3, noise3) = MSDE.sample(k3, u0, MSDE.EulerMaruyama!(), Ws)
+      uend4, (ts4, u4, noise4) = MSDE.sample(k4, u0, MSDE.EulerMaruyama!(), Ws)
+      uend5, (ts5, u5, noise5) = MSDE.sample(k5, u0, MSDE.EulerMaruyama!(), Ws)
+      uend6, (ts6, u6, noise6) = MSDE.sample(k6, u0, MSDE.EulerMaruyama!(), Ws)
 
       @test u1 ≈ uEM rtol=1e-12
       @test uendEM ≈ uend1 rtol=1e-12
@@ -229,13 +230,13 @@ end
               for (i,ti) in enumerate(trange[1:end-1])]])
       NG = NoiseGrid(trange,Ws)
 
-      tsEM, uEM, uendEM, noiseEM = MSDE.sample(k1, u0, EM(false), NG)
-      ts1, u1, uend1, noise1 = MSDE.sample(k1, u0, MSDE.EulerMaruyama!(), Ws, P=customP(θlin))
-      ts2, u2, uend2, noise2 = MSDE.sample(k2, u0, MSDE.EulerMaruyama!(), Ws, P=customP(θlin))
-      ts3, u3, uend3, noise3 = MSDE.sample(k3, u0, MSDE.EulerMaruyama!(), Ws, P=customP(θlin))
-      ts4, u4, uend4, noise4  = MSDE.sample(k4, u0, MSDE.EulerMaruyama!(), Ws)
-      ts5, u5, uend5, noise5 = MSDE.sample(k5, u0, MSDE.EulerMaruyama!(), Ws)
-      ts6, u6, uend6, noise6 = MSDE.sample(k6, u0, MSDE.EulerMaruyama!(), Ws)
+      uendEM, (tsEM, uEM, noiseEM) = MSDE.sample(k1, u0, EM(false), NG)
+      uend1, (ts1, u1, noise1) = MSDE.sample(k1, u0, MSDE.EulerMaruyama!(), Ws, P=customP(θlin))
+      uend2, (ts2, u2, noise2) = MSDE.sample(k2, u0, MSDE.EulerMaruyama!(), Ws, P=customP(θlin))
+      uend3, (ts3, u3, noise3) = MSDE.sample(k3, u0, MSDE.EulerMaruyama!(), Ws, P=customP(θlin))
+      uend4, (ts4, u4, noise4)  = MSDE.sample(k4, u0, MSDE.EulerMaruyama!(), Ws)
+      uend5, (ts5, u5, noise5) = MSDE.sample(k5, u0, MSDE.EulerMaruyama!(), Ws)
+      uend6, (ts6, u6, noise6) = MSDE.sample(k6, u0, MSDE.EulerMaruyama!(), Ws)
 
       @test u1 ≈ uEM rtol=1e-12
       @test uendEM ≈ uend1 rtol=1e-12

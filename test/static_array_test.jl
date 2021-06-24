@@ -46,8 +46,8 @@ Random.seed!(seed)
 samples2 = MSDE.sample(sdekernel2, u0stat, save_noise=false)
 
 @test isapprox(samples1[1], samples2[1], rtol=1e-10)
-@test isapprox(samples1[3], samples2[3], rtol=1e-10)
-@test typeof(samples2[3]) <: SArray
+@test isapprox(samples1[2][3], samples2[2][3], rtol=1e-10)
+@test typeof(samples2[2][2][end]) <: SArray
 
 
 # initial values for ODE
@@ -80,10 +80,10 @@ Random.seed!(seed)
 samples2 = MSDE.forwardguiding(sdekernel2, message2,
   (x0stat, ll0), inplace=false)
 
-@test isapprox(samples1[1], samples2[1], rtol=1e-10)
-@test isapprox(samples1[2], samples2[2], rtol=1e-10)
+@test isapprox(samples1[2][1], samples2[2][1], rtol=1e-10)
+@test isapprox(samples1[2][2], samples2[2][2], rtol=1e-10)
 @test_broken typeof(samples2[2][end]) <: SArray
-@test typeof(samples2[3]) <: SArray
+@test_broken typeof(samples2[3]) <: SArray
 end
 
 @testset "static tilde parameter tests" begin

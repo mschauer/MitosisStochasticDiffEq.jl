@@ -36,7 +36,7 @@ function _sample(k::Union{SDEKernel,SDEKernel!}, u0, alg::Union{StochasticDiffEq
 
   prob = construct_sample_Problem(k, u0, Z, alg)
   sol = solve(prob, alg, tstops = trange; kwargs...)
-  return sol.t, sol.u, sol[end], sol.W
+  return sol[end], (sol.t, sol.u, sol.W.W)
 end
 
 
@@ -51,10 +51,11 @@ function _sample(k::Union{SDEKernel,SDEKernel!}, u0, alg::AbstractInternalSolver
   end
   uu, uT = solve!(alg, uu, u, Z, P)
   if save
-    return getindex.(uu,2), getindex.(uu,3), uT[end], Z
+    rest = (getindex.(uu,2), getindex.(uu,3), getindex.(Z,3))
   else
-    return nothing, nothing, uT[end], getindex.(Z,3)
+    rest = (nothing, nothing, getindex.(Z,3))
   end
+  return uT[end], rest
 end
 
 
@@ -67,7 +68,7 @@ function sample(k::Union{SDEKernel,SDEKernel!}, u0, numtraj::Number, alg=EM(fals
   ensembleprob = EnsembleProblem(prob, output_func = output_func)
 
   sol = solve(ensembleprob, alg, ensemblealg, dt = get_dt(trange), trajectories=numtraj; kwargs...)
-  return sol
+  return sol.u
 end
 
 

@@ -87,10 +87,10 @@ end
 
   # sample using MSDE and EM default
   Random.seed!(100)
-  ts, u, uend, noise = MSDE.sample(sdekernel, u0, save_noise=true)
+  uend, (ts, u, noise) = MSDE.sample(sdekernel, u0, save_noise=true)
   Random.seed!(100)
   # for later AD check
-  ts2, u2, uend2, noise2 = MSDE.sample(sdekernel, [u0], save_noise=true)
+  uend2, (ts2, u2, noise2) = MSDE.sample(sdekernel, [u0], save_noise=true)
   @show uend
   @show length(u)
 

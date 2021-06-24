@@ -5,6 +5,7 @@ using RecursiveArrayTools
 using StochasticDiffEq
 using OrdinaryDiffEq
 using DiffEqNoiseProcess
+import DiffEqNoiseProcess.pCN
 using LinearAlgebra
 using Random
 using UnPack
@@ -14,6 +15,8 @@ using ForwardDiff
 using PaddedViews
 
 import SciMLBase.isinplace
+
+export pCN
 
 include("types.jl")
 include("sample.jl")
