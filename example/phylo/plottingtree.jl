@@ -5,8 +5,8 @@ function plotsegment!(pl1, pl2, leafid, segs, col)
     atroot = false
     while !atroot
         gg = segs[i]
-        t = getindex.(gg,2)
-        u = getindex.(gg,3)
+        t = gg[1]
+        u = gg[2]
         plot!(pl1, t, getindex.(u,1),color=col)
         plot!(pl2, t, getindex.(u,2),color=col)
         ipar = tree.Par[i]

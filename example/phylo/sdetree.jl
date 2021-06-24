@@ -152,7 +152,6 @@ function fwguidtree!(X, guidedsegs, Q, messages, tree::Tree, f, g, θ, Z, SDEalg
                                                             inplace=false, apply_timechange=apply_time_change)
         ll[i] = llnew + ll[ipar] * tree.lastone[i]
         X[i] = solend
-        X[i] = solfw[end][1:d]
         guidedsegs[i] = res
     end
     𝐋 = sum(ll[tree.lids]) + logdensity(Q[1], X[1]) #logdensity(convert(WGaussian{(:F,:Γ,:c)},Q[1]), X[1])
