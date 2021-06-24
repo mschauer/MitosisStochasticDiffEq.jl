@@ -143,7 +143,22 @@ function construct_forwardguiding_Problem(k::Union{SDEKernel,SDEKernel!}, messag
     guided_g = GuidingDiffusionCache(g,padded_size)
   end
 
-  prob = SDEProblem{inplace}(guided_f, guided_g, u0, get_tspan(trange), p, noise=Z,
+  if Z===nothing
+    noise = Z
+  else
+    if Z.curW isa AbstractVector
+      if Z isa DiffEqNoiseProcess.NoiseGrid
+        noise = AugmentedNoiseGrid(Z.t,Z.W,Z.Z)
+      else
+        error("Please pass a NoiseGrid to forwardguiding.")
+      end
+    else
+      # scalar case
+      noise = Z
+    end
+  end
+
+  prob = SDEProblem{inplace}(guided_f, guided_g, u0, get_tspan(trange), p, noise=noise,
                              noise_rate_prototype=_noise_rate_prototype)
 
   return prob
@@ -180,7 +195,7 @@ end
 
 function _forwardguiding(k::SDEKernel, message, (x0, ll0), alg::Union{StochasticDiffEqAlgorithm,StochasticDiffEqRODEAlgorithm}, Z;
     dt=dt, isadaptive=StochasticDiffEq.isadaptive(alg),
-    numtraj=nothing, ensemblealg=EnsembleThreads(), output_func=(sol,i) -> (sol,false),
+    numtraj=nothing, ensemblealg=EnsembleThreads(), output_func=(sol,i) -> (sol[end],false),
     inplace=inplace, kwargs...)
 
   @unpack f, g, trange, p = k
@@ -192,22 +207,27 @@ function _forwardguiding(k::SDEKernel, message, (x0, ll0), alg::Union{Stochastic
 
   if numtraj==nothing
     if !isadaptive
-      sol = solve(prob, alg, tstops=message.ts; kwargs...)
+      sol = solve(prob, alg, tstops=message.ts, adaptive=isadaptive; kwargs...)
     else
       sol = solve(prob, alg, dt=dt, adaptive=isadaptive; kwargs...)
     end
+    if Z===nothing
+      W = [x[1:length(x0)] for x in sol.W.W]
+    else
+      W = Z.W
+    end
+    return (sol[end][1:length(x0)],sol[end][end]), (sol.t, [x[1:length(x0)] for x in sol.u], W)
   else
     ensembleprob = EnsembleProblem(prob, output_func = output_func)
     if !isadaptive
       sol = solve(ensembleprob, alg, ensemblealg=ensemblealg,
-          tstops=message.ts, trajectories=numtraj; kwargs...)
+          tstops=message.ts, trajectories=numtraj, adaptive=isadaptive; kwargs...)
     else
       sol = solve(ensembleprob, alg, ensemblealg=ensemblealg,
           dt=dt, adaptive=isadaptive, trajectories=numtraj; kwargs...)
     end
+    return ([x[1:length(x0)] for x in sol.u], last.(sol.u)), nothing
   end
-
-  return sol, sol[end][end]
 end
 
 function _forwardguiding(k::SDEKernel, message, (x0, ll0), alg::AbstractInternalSolver, Z; P=nothing, save=true, inplace=inplace, kwargs...)
@@ -224,7 +244,12 @@ function _forwardguiding(k::SDEKernel, message, (x0, ll0), alg::AbstractInternal
     uu = nothing
   end
   uu, uT = solve!(alg, uu, u, Z, P)
-  return uu, uT[end]
+  if save
+    rest = (getindex.(uu,2), getindex.(uu,3), getindex.(Z,3))
+  else
+    rest = nothing
+  end
+  return (uT[3],uT[end]), rest
 end
 
 function tangent!(du, u, dz, P::GuidedSDE!)

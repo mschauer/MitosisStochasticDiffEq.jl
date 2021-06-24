@@ -84,3 +84,39 @@ function compute_Z(Z, noise_rate_prototype, trange, u0)
 
     return collect(zip(1:n, trange, Z))
 end
+
+
+
+function AugmentedNoiseGrid(ts,Ws,Zs=nothing)
+  Waug = [vcat(W,zero(eltype(W))) for W in Ws]
+  if Zs!==nothing
+    Zaug = [vcat(Z,zero(eltype(Z))) for Z in Zs]
+  else
+    Zaug = nothing
+  end
+  NGaug = NoiseGrid(ts,Waug,Zaug)
+end
+
+
+"""
+  innov(t)
+t:  either an array of Numbers or StepRangeLen{Number}
+returns Brownian values
+"""
+function innov(t, Z)
+    dt = diff(t)
+    w = [sqrt(dt[i])*convert(typeof(Z[i]),randn(size(Z[i]))) for i in 1:length(t)-1]
+    brownian_values = cumsum(pushfirst!(w, zero(Z[1])))
+end
+
+
+"""
+  pCN(Z, ρ)
+update noise values Z by pCN-step with parameter ρ. Taking ρ=1 just returns a
+NoiseGrid with the noise values Z
+"""
+function pCN(t,Z,ρ)
+    Znew = innov(t, Z)
+    a = cumsum(pushfirst!(ρ * diff(Z) + sqrt(1. - ρ^2) * diff(Znew), zero(Z[1])))
+    NoiseGrid(t, a)
+end
