@@ -146,7 +146,7 @@ prior = (MS.Gaussian{(:F,:Γ)}(zeros(2), Matrix(0.01*I(2))) , MS.Gaussian{(:F,:�
 
 
 
-iters = 500
+iters = 50_000
 @time θs, guidedsegs, frac_accepted = mcmc2(tree, Xd, f, g, θinit, prior;
   iters=iters)#, 𝒫=(:F,:Γ,:c))#, dt = dt0)
 
