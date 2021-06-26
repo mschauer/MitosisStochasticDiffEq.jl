@@ -32,7 +32,7 @@ include("sdetree.jl")
 #Random.seed!(10)
 
 ## Read tree
-tree = [Tree(S20coal), Tree(S)][1]
+tree = [Tree(S50), Tree(S20coal), Tree(S)][1]
 #print_tree(tree.newick)
 
 ## define model (two traits, as in presentation)
