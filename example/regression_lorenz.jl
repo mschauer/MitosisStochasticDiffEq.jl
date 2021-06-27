@@ -27,7 +27,7 @@ g(u,p,t) = g(zeros(3),u,p,t)
 p = [10.0,28.0, 8/3]
 
 u0 = [1.0,0.0,0.0]
-tspan = (0.0,5.0)
+tspan = (0.0,10.0)
 dt = 0.01
 trange = tspan[1]:dt:tspan[2]
 
@@ -66,3 +66,16 @@ G = MSDE.conjugate(R, sol, 0.1*I(3))
 p̂ = mean(G)
 se = sqrt.(diag(cov(G)))
 display(map((p̂, se, p) -> "$(round(p̂, digits=2)) ± $(round(se, digits=2)) (true: $p)", p̂, se, p))
+
+
+# Plots
+using Plots, LaTeXStrings
+pl1 = plot(sol,vars=(1,2,3), legend=true,
+  #background_color = :Transparent,
+  label = "",
+  lw = 2,
+  xlabel = L"x", ylabel = L"y", zlabel = L"z",
+  size=(350,300),
+  labelfontsize=20
+ )
+# savefig(pl1, "Lorentz.png")
