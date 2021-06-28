@@ -42,11 +42,12 @@ end
   myinnov(t)
 
 t:  either an array of Numbers or StepRangeLen{Number}
-returns NoiseGrid, with a Wiener process on the grid t
+returns NoiseGrid, with a Wiener process on the grid t.
+fac: factor that allows to scale the noise values (e.g., set them to zero)
 """
-function myinnov(t, 𝕏_)
+function myinnov(t, 𝕏_ ,fac=1)
     dt = diff(t)
-    w = [sqrt(dt[i])*randn(𝕏_) for i in 1:length(t)-1]
+    w = [fac*sqrt(dt[i])*randn(𝕏_) for i in 1:length(t)-1]
     brownian_values = cumsum(pushfirst!(w, zero(𝕏_)))
     myNoiseGrid(t,brownian_values)
 end
@@ -58,8 +59,8 @@ end
 update NoiseGrid Z by pCN-step with parameter ρ. Taking ρ=1 just returns a
 NoiseGrid with the same values as in Z
 """
-function pcn_innov(Z, ρ, 𝕏_)
-    Znew = myinnov(Z.t, 𝕏_)
+function pcn_innov(Z, ρ, 𝕏_, fac=1)
+    Znew = myinnov(Z.t, 𝕏_, fac)
     a = cumsum(pushfirst!(ρ * diff(Z.W) + sqrt(1. - ρ^2) * diff(Znew.W), zero(𝕏_)))
     myNoiseGrid(Z.t, a)
 end

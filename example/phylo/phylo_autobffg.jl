@@ -29,7 +29,7 @@ MS.logdensity(p::WGaussian{(:μ,:Σ,:c)}, x) = p.c - (MS.sqmahal(p,x) + MS._logd
 include("tree.jl")
 include("sdetree.jl")
 
-#Random.seed!(10)
+Random.seed!(10)
 
 ## Read tree
 tree = [Tree(S50), Tree(S20coal), Tree(S)][1]
@@ -68,7 +68,7 @@ function mcmc2(tree, Xd, f, g, θinit, prior;
                  𝒫=(:μ,:Σ,:c),  # 𝒫=(:F,:\Gamma,:c)
                  recomputeguidingterm=true,
                  alg=Tsit5(),
-                 SDEalg=EM(false),
+                 SDEalg=EM(false)
                  )
     #σ0 = θinit[2]
 
@@ -87,6 +87,7 @@ function mcmc2(tree, Xd, f, g, θinit, prior;
     θlin = (B(θinit), zeros(d), σ̃(θinit))
 
     Q, messages = bwfiltertree!(Q, tree, θlin, dt; apply_time_change=apply_time_change, alg=alg)
+    Qᵒ, messagesᵒ = Q, messages
 
     guidedsegs = Vector{Any}(undef, tree.n) # save all guided segments
     X = zeros(𝕏, tree.n)  # values at nodes
@@ -134,7 +135,7 @@ function mcmc2(tree, Xd, f, g, θinit, prior;
         push!(θs, deepcopy(θ))
     end
 
-    θs, guidedsegs, accepted/iters
+    θs, guidedsegs, accepted/iters, (Xᵒ, guidedsegsᵒ, Qᵒ, messagesᵒ, tree)
 end
 
 
@@ -147,8 +148,9 @@ prior = (MS.Gaussian{(:F,:Γ)}(zeros(2), Matrix(0.01*I(2))) , MS.Gaussian{(:F,:�
 
 
 iters = 50_000
-@time θs, guidedsegs, frac_accepted = mcmc2(tree, Xd, f, g, θinit, prior;
+@time θs, guidedsegs, frac_accepted, forwardguiding_input = mcmc2(tree, Xd, f, g, θinit, prior;
   iters=iters)#, 𝒫=(:F,:Γ,:c))#, dt = dt0)
+
 
 
 ## summary stats
@@ -166,7 +168,6 @@ println("-------")
 @show mean(getindex.(θs2,2))
 @show θ0[2][1]
 @show θ0[2][2]
-
 
 ## plotting
 PLOT = true
