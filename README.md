@@ -4,7 +4,7 @@
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://mschauer.github.io/MitosisStochasticDiffEq.jl/dev)
 [![Build Status](https://github.com/mschauer/MitosisStochasticDiffEq.jl/workflows/CI/badge.svg)](https://github.com/mschauer/MitosisStochasticDiffEq.jl/actions)
 
-Implements the [Mitosis transformation rules](https://github.com/mschauer/Mitosis.jl) `backwardfilter` and `forwardguiding` for for SciML's [`StochasticDiffEq`](https://github.com/SciML/StochasticDiffEq.jl) problems. 
+Implements the [Mitosis transformation rules](https://github.com/mschauer/Mitosis.jl) `backwardfilter` and `forwardguiding` for SciML's [`StochasticDiffEq`](https://github.com/SciML/StochasticDiffEq.jl) problems. 
 
 If the (possibly non-linear) drift depends linearly on parameters, estimate the parameters from continuous observations by `regression`. 
 
