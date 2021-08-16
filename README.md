@@ -8,6 +8,8 @@ Implements the [Mitosis transformation rules](https://github.com/mschauer/Mitosi
 
 If the (possibly non-linear) drift depends linearly on parameters, estimate the parameters from continuous observations by `regression`. 
 
+[![MitosisStochasticDiffEq.jl - Filtering & Guiding for SDEs | Frank Schäfer | JuliaCon2021E](https://img.youtube.com/vi/rie7MTvPpIs/0.jpg)](https://www.youtube.com/watch?v=rie7MTvPpIs)
+ 
 
 ## Synopsis
 
