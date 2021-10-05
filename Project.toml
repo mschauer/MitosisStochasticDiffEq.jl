@@ -22,7 +22,7 @@ UnPack = "3a884ed6-31ef-47d7-9d2a-63182c4928ed"
 [compat]
 DiffEqNoiseProcess = "5.6"
 ForwardDiff = "0.10"
-MeasureTheory = "0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.10"
+MeasureTheory = "0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.10, 0.12"
 Mitosis = "0.2"
 OrdinaryDiffEq = "5.50"
 PaddedViews = "0.5"
