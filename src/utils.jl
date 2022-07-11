@@ -41,7 +41,7 @@ function construct_discrete_sol(sol::SciMLBase.ODESolution)
   ν, P, c = myunpack(sol.u[1])
   d = length(ν)
   #TODO: only store views, make an option for Cholesky(P), qr(P), etc.
-  return [( view(cols,1:d), reshape(view(cols, d+1:d+d*d),d,d), cols[end]) for cols in eachcol(soldis)]
+  return [( view(cols,1:d), reshape(view(cols, d+1:d+d*d),d,d), cols[end]) for cols in soldis]
 end
 
 
