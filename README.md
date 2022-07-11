@@ -4,13 +4,12 @@
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://mschauer.github.io/MitosisStochasticDiffEq.jl/dev)
 [![Build Status](https://github.com/mschauer/MitosisStochasticDiffEq.jl/workflows/CI/badge.svg)](https://github.com/mschauer/MitosisStochasticDiffEq.jl/actions)
 
-Implements the [Mitosis transformation rules](https://github.com/mschauer/Mitosis.jl) `backwardfilter` and `forwardguiding` for SciML's [`StochasticDiffEq`](https://github.com/SciML/StochasticDiffEq.jl) problems. 
+Implements the [Mitosis transformation rules](https://github.com/mschauer/Mitosis.jl) `backwardfilter` and `forwardguiding` for SciML's [`StochasticDiffEq`](https://github.com/SciML/StochasticDiffEq.jl) problems.
 
-If the (possibly non-linear) drift depends linearly on parameters, estimate the parameters from continuous observations by `regression`. 
+If the (possibly non-linear) drift depends linearly on parameters, estimate the parameters from continuous observations by `regression`.
 
 [![MitosisStochasticDiffEq.jl - Filtering & Guiding for SDEs | Frank Schäfer | JuliaCon2021E](https://img.youtube.com/vi/rie7MTvPpIs/0.jpg)](https://www.youtube.com/watch?v=rie7MTvPpIs)
  
-
 ## Synopsis
 
 *MitosisStochasticDiffEq* implements the backward filter and the forward change of measure  of the Automatic Backward Filtering Forward Guiding paradigm  (van der Meulen and Schauer, 2020) as transformation rules for SDE models,  suitable to be incorporated into probabilistic programming approaches.
@@ -39,10 +38,10 @@ function g(du, u, θ, t)
     return
 end
 
-# b is linear in the parameter with Jacobian 
+# b is linear in the parameter with Jacobian
 function b_jac(J,x,θ,t)
     J .= false
-    J[1,1] =   0.2 * x[2] 
+    J[1,1] =   0.2 * x[2]
     J[2,1] = - 0.2 * x[1]
     nothing
 end
@@ -54,7 +53,7 @@ function b_icpt(dx,x,θ,t)
     nothing
 end
 
-# Simulate path ensemble 
+# Simulate path ensemble
 x0 = [1.0, 1.0]
 tspan = (0.0, 20.0)
 θ0 = 1.0
@@ -82,4 +81,3 @@ print(mean(posterior)[], " ± ", sqrt(cov(posterior)[]))
 
 * [1] Marcin Mider, Moritz Schauer, Frank van der Meulen (2020): Continuous-discrete smoothing of diffusions. [[arxiv:1712.03807]](https://arxiv.org/abs/arxiv:1712.03807).
 * [2] Frank van der Meulen, Moritz Schauer (2020): Automatic Backward Filtering Forward Guiding for Markov processes and graphical models. [[arXiv:2010.03509]](https://arxiv.org/abs/2010.03509).
-
