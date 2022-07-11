@@ -29,7 +29,6 @@ function backwardfilter((c, ν, P)::NamedTuple{(:logscale, :μ, :Σ)}, p, s)
     ps, [ν, P, c]
 end
 
-
 @testset "backward filtering tests" begin
 
   # define SDE function
@@ -63,7 +62,7 @@ end
   message2, solend2 = backwardfilter(NT, plin, message.ts)
 
   @test isapprox(solend, solend2, rtol=1e-15)
-  @test isapprox(Array(message.sol.u), reduce(hcat, message2), rtol=1e-15)
+  @test isapprox(Array(message.sol.u), message2, rtol=1e-15)
 
   # multivariate tests
   dim = 5
@@ -164,8 +163,7 @@ end
   message2, solend2 = backwardfilter(NT, plin, message.ts)
 
   @test isapprox(solend, solend2, rtol=1e-15)
-  @test isapprox(Array(message.sol.u), reduce(hcat, message2), rtol=1e-15)
-
+  @test isapprox(Array(message.sol.u), message2, rtol=1e-15)
 end
 
 
