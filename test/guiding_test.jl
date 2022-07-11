@@ -42,7 +42,7 @@ function forwardguiding(plin, pest, s, (x, ll), ps, Z=randn(length(s)), noisetyp
         # P = reshape(@view(ps[:,i][d+1:d+d*d]), d, d)
         # r = inv(P)*(ν .- x)
         ν = ps[i][1]
-        P = ps[i][2]
+        P = Array(ps[i][2])
         r = inv(P)*(ν .- x)
 
 
@@ -178,7 +178,6 @@ g(u,p,t) = p[3] .- 0.2*(1 .-sin.(u))
   @test isapprox(ll, ll2, rtol=1e-12)
 end
 
-
 @testset "OOP Guiding tests" begin
 
   # set true model parameters
@@ -285,8 +284,6 @@ end
   @test isapprox(ll, ll2, rtol=1e-12)
 end
 
-
-
 @testset "Adaptive Guiding tests" begin
   Random.seed!(12345)
   using StochasticDiffEq, DiffEqNoiseProcess
@@ -387,7 +384,6 @@ end
   @test length(ts) == length(trange)
 end
 
-
 @testset "Reuse of noise values tests" begin
   Random.seed!(12345)
   using StochasticDiffEq, DiffEqNoiseProcess
@@ -472,7 +468,6 @@ end
   @test ≈(cor(dWnew,dWold),ρ,rtol=1e-1)
 end
 
-
 @testset "flag-constant and matrix-valued diffusivity tests" begin
 
   Random.seed!(12345)
@@ -556,8 +551,6 @@ end
   @test ll1 ≈ ll3
   @test isapprox(u1, u3, rtol=1e-14)
 end
-
-
 
 @testset "multivariate forward guiding tests" begin
   seed = 12345

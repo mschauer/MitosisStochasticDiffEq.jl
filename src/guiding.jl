@@ -44,7 +44,7 @@ function (G::GuidingDriftCache)(du,u,p,t)
     r = Σ\(μ - x)
     du[end] = dot(f(x,p,t) - ktilde.f(x,ktilde.p,t), r)
     if !constant_diffusity
-      du[end] -= 0.5*tr((outer_(g(x,p,t)) - outer_(ktilde.g(x,ktilde.p,t)))*(inv(Σ) - outer_(r)))
+      du[end] -= 0.5*tr((outer_(g(x,p,t)) - outer_(ktilde.g(x,ktilde.p,t)))*(inv(Array(Σ)) - outer_(r)))
     end
     dx[:] .= vec(f(x,p,t) + (outer_(g(x,p,t))*r)) # evolution guided by observations
   else
@@ -82,7 +82,7 @@ function (G::GuidingDriftCache)(u,p,t)
 
     dl = dot(f(x,p,t) -  ktilde.f(x,ktilde.p,t), r)
     if !constant_diffusity
-      dl -= 0.5*tr((outer_(g(x,p,t)) - outer_(ktilde.g(x,ktilde.p,t)))*(inv(Σ) - outer_(r)))
+      dl -= 0.5*tr((outer_(g(x,p,t)) - outer_(ktilde.g(x,ktilde.p,t)))*(inv(Array(Σ)) - outer_(r)))
     end
     dx = vec(f(x,p,t) + outer_(g(x,p,t))*r) # evolution guided by observations
   else
@@ -270,7 +270,7 @@ function tangent!(du, u, dz, P::GuidedSDE!)
 
   dl = dot(f(x,p,t) - ktilde.f(x,ktilde.p,t), r)
   if !constant_diffusity
-    dl -= 0.5*tr((outer_(g(x,p,t)) - outer_(ktilde.g(x,ktilde.p,t)))*(inv(Σ) - outer_(r)))
+    dl -= 0.5*tr((outer_(g(x,p,t)) - outer_(ktilde.g(x,ktilde.p,t)))*(inv(Array(Σ)) - outer_(r)))
   end
   (dz[1], dz[2], du[3], dl)
 end
@@ -305,7 +305,7 @@ function tangent!(du, u, dz, P::GuidedSDE)
 
   dl = dot(f(x,p,t) - ktilde.f(x,ktilde.p,t), r)
   if !constant_diffusity
-    dl -= 0.5*tr((outer_(g(x,p,t)) - outer_(ktilde.g(x,ktilde.p,t)))*(inv(Σ) - outer_(r)))
+    dl -= 0.5*tr((outer_(g(x,p,t)) - outer_(ktilde.g(x,ktilde.p,t)))*(inv(Array(Σ)) - outer_(r)))
   end
   (dz[1], dz[2], du3, dl)
 end
