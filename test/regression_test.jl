@@ -36,6 +36,8 @@ function conjugate_posterior(ts, Ys, Ξ, p, g)
     Mitosis.Gaussian{(:F,:Γ)}(mu, G + Ξ)#, mulist
 end
 
+seed = 72478378278
+
 @testset "regression tests" begin
 
   K = 1000
@@ -86,9 +88,9 @@ end
   sdekernel2 = MSDE.SDEKernel(f,g,trange,par)
 
   # sample using MSDE and EM default
-  Random.seed!(100)
+  Random.seed!(seed)
   uend, (ts, u, noise) = MSDE.sample(sdekernel, u0, save_noise=true)
-  Random.seed!(100)
+  Random.seed!(seed)
   # for later AD check
   uend2, (ts2, u2, noise2) = MSDE.sample(sdekernel, [u0], save_noise=true)
   @show uend
@@ -245,7 +247,7 @@ end
   par = [-0.3, 0.2, 0.5]
 
   # define SDE Problem and sample using EM
-  Random.seed!(100)
+  Random.seed!(seed)
   prob = SDEProblem(foop, goop, u0, (tstart,tend), par)
   sol = solve(prob, EM(), dt = dt)
 
@@ -342,8 +344,6 @@ end
   yprototype = zeros(2)
   ϕprototype = zeros((2,1))
 
-  # fix seeds
-  seed = 100
   Random.seed!(seed)
   W = WienerProcess(0.0,0.0,nothing)
 

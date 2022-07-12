@@ -13,8 +13,8 @@ and integration scale c2 between observations
 
 """
 function backwardfilter((c, ν, P)::NamedTuple{(:logscale, :μ, :Σ)}, p, s)
-    ps = [[ν, P, c]]
-    B, β, σ̃ = p
+  ps = [[ν, P, c]]
+  B, β, σ̃ = p
     for i in eachindex(s)[end-1:-1:1]
         dt = s[i+1] - s[i]
         H = inv(P)
@@ -28,7 +28,6 @@ function backwardfilter((c, ν, P)::NamedTuple{(:logscale, :μ, :Σ)}, p, s)
     end
     ps, [ν, P, c]
 end
-
 
 @testset "backward filtering tests" begin
 
@@ -58,12 +57,12 @@ end
   message2, solend2 = MSDE.backwardfilter(kernel2, NT)
 
   @test isapprox(solend, solend2, rtol=1e-15)
-  @test isapprox(Array(message.sol), Array(message2.sol), rtol=1e-15)
+  @test isapprox(Array(message.sol.u), Array(message2.sol.u), rtol=1e-15)
 
   message2, solend2 = backwardfilter(NT, plin, message.ts)
 
   @test isapprox(solend, solend2, rtol=1e-15)
-  @test isapprox(Array(message.sol), reduce(hcat, message2), rtol=1e-15)
+  @test isapprox(Array(message.sol.u), message2, rtol=1e-15)
 
   # multivariate tests
   dim = 5
@@ -85,16 +84,16 @@ end
   kernel2 = MSDE.SDEKernel(Mitosis.AffineMap(B, β), Mitosis.ConstantMap(σ̃), trange, plin)
   message2, solend2 = MSDE.backwardfilter(kernel2, NT)
   @test isapprox(solend, solend2, rtol=1e-15)
-  @test isapprox(Array(message.sol), Array(message2.sol), rtol=1e-15)
+  @test isapprox(Array(message.sol.u), Array(message2.sol.u), rtol=1e-15)
 
   # test inplace version
   message2, solend2 = MSDE.backwardfilter(kernel, NT, inplace=true)
   @test isapprox(solend, solend2, rtol=1e-15)
-  @test isapprox(Array(message.sol), Array(message2.sol), rtol=1e-15)
+  @test isapprox(Array(message.sol.u), Array(message2.sol.u), rtol=1e-15)
 
   message2, solend2 = MSDE.backwardfilter(kernel2, NT, inplace=true)
   @test isapprox(solend, solend2, rtol=1e-15)
-  @test isapprox(Array(message.sol), Array(message2.sol), rtol=1e-15)
+  @test isapprox(Array(message.sol.u), Array(message2.sol.u), rtol=1e-15)
 
   m = 3 # some number of Brownian processes
   plin = [randn(dim,dim), randn(dim), randn(dim,m)] # B, β, σtil
@@ -110,12 +109,12 @@ end
   kernel2 = MSDE.SDEKernel(Mitosis.AffineMap(B, β), Mitosis.ConstantMap(σ̃), trange, plin)
   message2, solend2 = MSDE.backwardfilter(kernel2, NT)
   @test isapprox(solend, solend2, rtol=1e-15)
-  @test isapprox(Array(message.sol), Array(message2.sol), rtol=1e-15)
+  @test isapprox(Array(message.sol.u), Array(message2.sol.u), rtol=1e-15)
 
   # test inplace version
   message2, solend2 = MSDE.backwardfilter(kernel, NT, inplace=true)
   @test isapprox(solend, solend2, rtol=1e-15)
-  @test isapprox(Array(message.sol), Array(message2.sol), rtol=1e-15)
+  @test isapprox(Array(message.sol.u), Array(message2.sol.u), rtol=1e-15)
 
   # test symmetric matrix
   plin = [Symmetric(randn(dim,dim)), randn(dim), randn(dim,m)] # B, β, σtil
@@ -124,14 +123,14 @@ end
   message, solend  = MSDE.backwardfilter(kernel, NT)
   message2, solend2 = MSDE.backwardfilter(kernel2, NT)
   @test isapprox(solend, solend2, rtol=1e-15)
-  @test isapprox(Array(message.sol), Array(message2.sol), rtol=1e-15)
+  @test isapprox(Array(message.sol.u), Array(message2.sol.u), rtol=1e-15)
 
   plin = [Array(plin[1]), plin[2], plin[3]] # B, β, σtil
   kernel = MSDE.SDEKernel(f,g,trange,plin)
   message2, solend2  = MSDE.backwardfilter(kernel, NT)
 
   @test isapprox(solend, solend2, rtol=1e-15)
-  @test isapprox(Array(message.sol), Array(message2.sol), rtol=1e-15)
+  @test isapprox(Array(message.sol.u), Array(message2.sol.u), rtol=1e-15)
 end
 
 @testset "backward filtering timechange tests" begin
@@ -164,8 +163,7 @@ end
   message2, solend2 = backwardfilter(NT, plin, message.ts)
 
   @test isapprox(solend, solend2, rtol=1e-15)
-  @test isapprox(Array(message.sol), reduce(hcat, message2), rtol=1e-15)
-
+  @test isapprox(Array(message.sol.u), message2, rtol=1e-15)
 end
 
 

@@ -37,11 +37,11 @@ function convert_message(message, F1::CovarianceFilter, F2::InformationFilter)
 end
 
 function construct_discrete_sol(sol::SciMLBase.ODESolution)
-  soldis = reverse(Array(sol), dims=2)
+  soldis = reverse(Array(sol.u))
   ν, P, c = myunpack(sol.u[1])
   d = length(ν)
   #TODO: only store views, make an option for Cholesky(P), qr(P), etc.
-  return [( view(cols,1:d), reshape(view(cols, d+1:d+d*d),d,d), cols[end]) for cols in eachcol(soldis)]
+  return [( view(cols,1:d), reshape(view(cols, d+1:d+d*d),d,d), cols[end]) for cols in soldis]
 end
 
 

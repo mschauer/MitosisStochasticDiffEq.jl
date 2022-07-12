@@ -1,7 +1,7 @@
 name = "MitosisStochasticDiffEq"
 uuid = "6d72f4e6-0ed6-45a8-9268-ca10853c051d"
 authors = ["Frank Schaefer <frank.schaefer@unibas.ch>, Moritz Schauer <moritzschauer@web.de> and contributors"]
-version = "0.1.0"
+version = "0.2.0"
 
 [deps]
 DiffEqNoiseProcess = "77a26b50-5914-5dd7-bc55-306e6241c503"
