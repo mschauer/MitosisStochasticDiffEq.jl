@@ -3,7 +3,6 @@ path = @__DIR__
 cd(path)
 Pkg.activate(path)
 
-using Mitosis
 using MitosisStochasticDiffEq
 using LinearAlgebra, Statistics, Random, StatsBase
 using DelimitedFiles
@@ -15,16 +14,16 @@ using DiffEqNoiseProcess
 
 const d = 2
 const 𝕏 = SVector{d,Float64}
-const MS = Mitosis
+
 const MSDE = MitosisStochasticDiffEq
 
 # using MeasureTheory
 # import MeasureTheory.logdensity
-MS.dim(p::WGaussian{(:μ,:Σ,:c)}) = length(p.μ)
-MS._logdet(p::WGaussian{(:μ,:Σ,:c)}) = MS._logdet(p.Σ, MS.dim(p))
-MS.whiten(p::WGaussian{(:μ,:Σ,:c)}, x) = MS.lchol(p.Σ)\(x - p.μ)
-MS.sqmahal(p::WGaussian, x) = MS.norm_sqr(MS.whiten(p, x))
-MS.logdensity(p::WGaussian{(:μ,:Σ,:c)}, x) = p.c - (MS.sqmahal(p,x) + MS._logdet(p) + MS.dim(p)*log(2pi))/2
+MSDE.dim(p::MSDE.WGaussian{(:μ,:Σ,:c)}) = length(p.μ)
+MSDE._logdet(p::MSDE.WGaussian{(:μ,:Σ,:c)}) = MSDE._logdet(p.Σ, MSDE.dim(p))
+MSDE.whiten(p::MSDE.WGaussian{(:μ,:Σ,:c)}, x) = MSDE.lchol(p.Σ)\(x - p.μ)
+MSDE.sqmahal(p::MSDE.WGaussian, x) = MSDE.norm_sqr(MSDE.whiten(p, x))
+MSDE.logdensityof(p::MSDE.WGaussian{(:μ, :Σ, :c)}, x) = p.c - (MSDE.sqmahal(p, x) + MSDE._logdet(p) + MSDE.dim(p) * log(2pi)) / 2
 
 include("tree.jl")
 include("sdetree.jl")
@@ -73,18 +72,20 @@ function mcmc2(tree, Xd, f, g, θinit, prior;
     #σ0 = θinit[2]
 
     if 𝒫==(:μ,:Σ,:c)
-        #Q = [i in tree.lids ? WGaussian{(:μ,:Σ,:c)}(Vector(Xd[i]), precisionatleaves*Matrix(I(d)), 0.0) : missing for i in tree.ids]
+        #Q = [i in tree.lids ? MSDE.WGaussian{(:μ,:Σ,:c)}(Vector(Xd[i]), precisionatleaves*Matrix(I(d)), 0.0) : missing for i in tree.ids]
         # in case of static arrays
         leavescov = inv(precisionatleaves) * SA_F64[1 0; 0 1]
-        Q = [i in tree.lids ? WGaussian{(:μ,:Σ,:c)}(Xd[i], leavescov, 0.0) : missing for i in tree.ids]
+        Q = [i in tree.lids ? MSDE.WGaussian{(:μ,:Σ,:c)}(Xd[i], leavescov, 0.0) : missing for i in tree.ids]
     elseif 𝒫==(:F,:Γ,:c)
         leavesprecision = precisionatleaves * SA_F64[1 0; 0 1]
-        Q = [i in tree.lids ? WGaussian{(:F,:Γ,:c)}(leavesprecision*Xd[i], leavesprecision, 0.0) : missing for i in tree.ids]
+        Q = [i in tree.lids ? MSDE.WGaussian{(:F,:Γ,:c)}(leavesprecision*Xd[i], leavesprecision, 0.0) : missing for i in tree.ids]
     else
         @error "𝒫 not defined"
     end
     θ = θinit
     θlin = (B(θinit), zeros(d), σ̃(θinit))
+
+    Qtest = deepcopy(Q)
 
     Q, messages = bwfiltertree!(Q, tree, θlin, dt; apply_time_change=apply_time_change, alg=alg)
     Qᵒ, messagesᵒ = Q, messages
@@ -95,6 +96,9 @@ function mcmc2(tree, Xd, f, g, θinit, prior;
         X[id] = Xd[id]
     end
 
+    # for i in tree.lids
+    #     @show Qtest[i] == Qᵒ[i]  Qtest[i] == Q[i]  Q[i] == Qᵒ[i]
+    # end
     Z = [myinnov(messages[i].ts, 𝕏) for i ∈ 2:tree.n]
 
     X, guidedsegs, ll, 𝐋 = fwguidtree!(X, guidedsegs, Q, messages, tree, f, g, θ, Z, SDEalg)
@@ -114,7 +118,7 @@ function mcmc2(tree, Xd, f, g, θinit, prior;
             Qᵒ = Q
         end
         Xᵒ, guidedsegsᵒ, llᵒ, 𝐋ᵒ = fwguidtree!(Xᵒ, guidedsegsᵒ, Qᵒ, messagesᵒ, tree, f, g, θᵒ, Zᵒ, SDEalg)
-        Δ = 𝐋ᵒ - 𝐋 + logdensity(prior[1], θᵒ[1]) - logdensity(prior[1], θ[1]) + logdensity(prior[2], θᵒ[2]) - logdensity(prior[2], θ[2])
+        Δ = 𝐋ᵒ - 𝐋 + MSDE.logdensityof(prior[1], θᵒ[1]) - MSDE.logdensityof(prior[1], θ[1]) + MSDE.logdensityof(prior[2], θᵒ[2]) - MSDE.logdensityof(prior[2], θ[2])
 
         if mod(iter, 10) == 0
              println(iter,"   ", round.(θ[1];digits=2),"   ", round.(θᵒ[1];digits=2), "       ",
@@ -141,16 +145,31 @@ end
 
 
 
-prior = (MS.Gaussian{(:F,:Γ)}(zeros(2), Matrix(0.01*I(2))) , MS.Gaussian{(:F,:Γ)}(-ones(2), Matrix(0.01*I(2))))
+prior = (MSDE.Gaussian{(:F,:Γ)}(zeros(2), Matrix(0.01*I(2))) , MSDE.Gaussian{(:F,:Γ)}(-ones(2), Matrix(0.01*I(2))))
 #θinit = (SVector(3.2, 1.0), σ0)
 θinit = (SVector(3.2, 1.0), SVector(.1, .1))
 
 
 
-iters = 50_000
+iters = 50_000 # 50_000
 @time θs, guidedsegs, frac_accepted, forwardguiding_input = mcmc2(tree, Xd, f, g, θinit, prior;
   iters=iters)#, 𝒫=(:F,:Γ,:c))#, dt = dt0)
 
+begin
+    trace_theta_drift = getindex.(θs, 1)
+    plot([θ[1] for θ in trace_theta_drift])
+    plot!([θ[2] for θ in trace_theta_drift])
+    hline!([θ0[1][1]])
+    hline!([θ0[1][2]])
+end
+
+begin
+    trace_theta_diff = getindex.(θs, 2)
+    plot([θ[1] for θ in trace_theta_diff])
+    plot!([θ[2] for θ in trace_theta_diff])
+    hline!([θ0[2][1]])
+    hline!([θ0[2][2]])
+end
 
 
 ## summary stats
@@ -175,38 +194,38 @@ if PLOT==true
     include("plottingtree.jl")
 end
 
-## partially conjugate steps
-STOP = true
-if STOP==false
-    ## regression of drift parameters θ[1]
-    function driftparamstree(prior, segs, tree::Tree, f, g, θ, paramjac, messages)
-        G = deepcopy(prior) # posterior that should be returned
-        for i in eachindex(tree.T)
-            i == 1 && continue  # skip root-node  (has no parent)
-            ts = messages[i].ts
-            κ = MSDE.SDEKernel(f, g, ts, θ)
-            R = MSDE.Regression(κ,θ=θ[1],paramjac=paramjac)
-            G = MSDE.conjugate(R, map(x->x[1:end-1], segs[i].u), G, ts)  # map because last element is the loglikelihood (this is is we provide segs as guidedsegs)
-        end
-        G
-    end
+# ## partially conjugate steps
+# STOP = true
+# if STOP==false
+#     ## regression of drift parameters θ[1]
+#     function driftparamstree(prior, segs, tree::Tree, f, g, θ, paramjac, messages)
+#         G = deepcopy(prior) # posterior that should be returned
+#         for i in eachindex(tree.T)
+#             i == 1 && continue  # skip root-node  (has no parent)
+#             ts = messages[i].ts
+#             κ = MSDE.SDEKernel(f, g, ts, θ)
+#             R = MSDE.Regression(κ,θ=θ[1],paramjac=paramjac)
+#             G = MSDE.conjugate(R, map(x->x[1:end-1], segs[i].u), G, ts)  # map because last element is the loglikelihood (this is is we provide segs as guidedsegs)
+#         end
+#         G
+#     end
 
-    # Gaussian prior
-    prior = MS.Gaussian{(:F,:Γ)}(zeros(2), Matrix(0.001*I(2)))
-    # paramjac for non AD version
-    function paramjac(u,p,t)
-      Diagonal(M*u)
-    end
-    G = driftparamstree(prior, guidedsegs, tree, f, g, θ, paramjac, messages)
-    p̂ = mean(G)
-    se = sqrt.(diag(cov(G)))
-    display(map((p̂, se, p) -> "$(round(p̂, digits=3)) ± $(round(se, digits=3)) (true: $p)", p̂, se, θ0[1]))
-end
+#     # Gaussian prior
+#     prior = MSDE.Gaussian{(:F,:Γ)}(zeros(2), Matrix(0.001*I(2)))
+#     # paramjac for non AD version
+#     function paramjac(u,p,t)
+#       Diagonal(M*u)
+#     end
+#     G = driftparamstree(prior, guidedsegs, tree, f, g, θ, paramjac, messages)
+#     p̂ = mean(G)
+#     se = sqrt.(diag(cov(G)))
+#     display(map((p̂, se, p) -> "$(round(p̂, digits=3)) ± $(round(se, digits=3)) (true: $p)", p̂, se, θ0[1]))
+# end
 
 
 # function mcmc(tree, Xd, f, g, θlin, θinit, prior; ρ=0.99, iters=5000, dt=0.01, σprop=0.05, precisionatleaves=10e-6)
 #     σ0 = θinit[2]
-#     Q = [i in tree.lids ? WGaussian{(:μ,:Σ,:c)}(Vector(Xd[i]), precisionatleaves*Matrix(I(d)), 0.0) : missing for i in tree.ids]
+#     Q = [i in tree.lids ? MSDE.WGaussian{(:μ,:Σ,:c)}(Vector(Xd[i]), precisionatleaves*Matrix(I(d)), 0.0) : missing for i in tree.ids]
 #     Q, messages = bwfiltertree!(Q, tree, θlin, dt)
 #
 #     guidedsegs = Vector{Any}(undef, tree.n) # save all guided segments

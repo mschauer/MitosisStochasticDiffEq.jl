@@ -34,8 +34,15 @@ function myNoiseGrid(t,W,Z=nothing;reset=true)
     curZ = copy(Z[1])
     dZ = copy(Z[1])
   end
-  DiffEqNoiseProcess.NoiseGrid{typeof(val),ndims(val),typeof(dt),typeof(dW),typeof(dZ),typeof(Z),false}(
-            t,W,W,Z,curt,curW,curZ,dt,dW,dZ,true,reset)
+
+  if sign(t[end] - t[1]) == 1
+    cur_time = Ref(1)
+  else
+    cur_time = Ref(length(t))
+  end
+
+  DiffEqNoiseProcess.NoiseGrid{typeof(val),ndims(val),typeof(dt),typeof(dW),typeof(dZ),typeof(Z),typeof(cur_time),false}(
+        t, W, W, Z, curt, curW, curZ, dt, dW, dZ, true, reset, cur_time)
 end
 
 """
@@ -122,7 +129,7 @@ function bwfiltertree!(Q, tree::Tree, θlin, dt0; apply_time_change=false, alg=T
             tvals = T[ipar]:dt:T[i]
         end
 
-        κ̃ = MSDE.SDEKernel(MS.AffineMap(θlin[1], θlin[2]), MS.ConstantMap(θlin[3]), tvals, θlin)
+        κ̃ = MSDE.SDEKernel(MSDE.AffineMap(θlin[1], θlin[2]), MSDE.ConstantMap(θlin[3]), tvals, θlin)
 
         # message, u = MSDE.backwardfilter(κ̃, Q[i], alg=OrdinaryDiffEq.Tsit5(), abstol=1e-12, reltol=1e-12, apply_timechange=apply_time_change)
         message, u = MSDE.backwardfilter(κ̃, Q[i], apply_timechange=apply_time_change, alg=alg)
@@ -130,7 +137,7 @@ function bwfiltertree!(Q, tree::Tree, θlin, dt0; apply_time_change=false, alg=T
         if tree.lastone[i] # last child is encountered first backwards
             Q[ipar] = u
         else
-            Q[ipar] = MS.fuse(u, Q[ipar]; unfused=false)[2]
+            Q[ipar] = MSDE.fuse(u, Q[ipar]; unfused=false)[2]
         end
     end
     Q, messages
@@ -150,11 +157,13 @@ function fwguidtree!(X, guidedsegs, Q, messages, tree::Tree, f, g, θ, Z, SDEalg
         κ = MSDE.SDEKernel(f, g, messages[i].ts, θ, zeros(d,d))
         ipar = tree.Par[i]
         (solend, llnew), res = MSDE.forwardguiding(κ, messages[i], (X[ipar], 0.0), SDEalg, Z[i-1],
-                                                            inplace=false, apply_timechange=apply_time_change)
+                                                            inplace=false,
+                                                            #apply_timechange=apply_time_change
+                                                            )
         ll[i] = llnew + ll[ipar] * tree.lastone[i]
         X[i] = solend
         guidedsegs[i] = res
     end
-    𝐋 = sum(ll[tree.lids]) + logdensity(Q[1], X[1]) #logdensity(convert(WGaussian{(:F,:Γ,:c)},Q[1]), X[1])
+    𝐋 = sum(ll[tree.lids]) + MSDE.logdensityof(Q[1], X[1]) #logdensity(convert(WGaussian{(:F,:Γ,:c)},Q[1]), X[1])
     X, guidedsegs, ll, 𝐋
 end

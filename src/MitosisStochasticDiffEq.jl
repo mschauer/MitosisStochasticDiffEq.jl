@@ -1,6 +1,5 @@
 module MitosisStochasticDiffEq
 
-using Mitosis
 using RecursiveArrayTools
 using StochasticDiffEq
 using OrdinaryDiffEq
@@ -13,11 +12,13 @@ using Statistics
 using StaticArrays
 using ForwardDiff
 using PaddedViews
+using StatsBase
 
 import SciMLBase.isinplace
 
 export pCN
 
+include("mitosis.jl")
 include("types.jl")
 include("sample.jl")
 include("filter.jl")
